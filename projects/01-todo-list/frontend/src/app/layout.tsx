@@ -24,6 +24,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* YouTube Player API 스크립트 */}
+        <script 
+          src="https://www.youtube.com/iframe_api" 
+          async
+        ></script>
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
