@@ -12,7 +12,7 @@ export interface Todo {
   id: number;
   title: string;
   description?: string;
-  completed?: boolean;
+  isCompleted?: boolean;
   priority?: Priority;
   createdAt: string;
   updatedAt: string;
@@ -35,7 +35,7 @@ export interface CreateTodoRequest {
 export interface UpdateTodoRequest {
   title?: string;
   description?: string;
-  completed?: boolean;
+  isCompleted?: boolean;
   priority?: Priority;
   dueDate?: string;
 }
@@ -75,7 +75,7 @@ export type ApiResult<T> = ApiResponse<T> | ApiErrorResponse;
  * Todo 필터링 옵션
  */
 export interface TodoFilters {
-  completed?: boolean;
+  isCompleted?: boolean;
   priority?: Priority;
   sort?: 'CREATED_AT' | 'UPDATED_AT' | 'TITLE' | 'PRIORITY';
   order?: 'ASC' | 'DESC';

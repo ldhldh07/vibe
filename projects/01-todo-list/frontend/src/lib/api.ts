@@ -79,8 +79,8 @@ async function apiRequest<T>(
 export async function getTodos(filters?: TodoFilters): Promise<ApiResult<Todo[]>> {
   const params = new URLSearchParams();
   
-  if (filters?.completed !== undefined) {
-    params.append('completed', filters.completed.toString());
+  if (filters?.isCompleted !== undefined) {
+    params.append('completed', filters.isCompleted.toString());
   }
   if (filters?.priority) {
     params.append('priority', filters.priority);

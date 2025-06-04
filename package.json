@@ -4,6 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "backend": "cd projects/01-todo-list/backend && ./start.sh",
+    "backend:dev": "cd projects/01-todo-list/backend && ./dev.sh",
+    "backend:kill": "pkill -f 'todo-app.jar' && pkill -f 'gradle.*run'",
+    "frontend": "cd projects/01-todo-list/frontend && pnpm dev",
+    "fullstack": "concurrently \"pnpm backend\" \"pnpm frontend\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -12,6 +21,7 @@
   "packageManager": "pnpm@10.11.1",
   "devDependencies": {
     "@types/node": "22.15.29",
+    "concurrently": "9.1.2",
     "prettier": "3.5.3",
     "turbo": "2.5.4",
     "typescript": "5.8.3"
