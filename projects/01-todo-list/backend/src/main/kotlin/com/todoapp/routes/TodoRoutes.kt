@@ -42,6 +42,22 @@ fun Route.todoRoutes(todoService: TodoService = TodoService()) {
             }
         }
         
+        // PUT /api/todos/{id} - Todo 업데이트
+        put("/{id}") {
+            try {
+                val id = call.parameters["id"]?.toLongOrNull()
+                    ?: return@put call.respond(HttpStatusCode.BadRequest, ApiErrorResponse.badRequest("유효하지 않은 ID입니다"))
+                
+                val request = call.receive<UpdateTodoRequest>()
+                val updatedTodo = todoService.updateTodo(id, request)
+                call.respond(HttpStatusCode.OK, ApiResponse(success = true, data = updatedTodo))
+            } catch (e: IllegalArgumentException) {
+                call.respond(HttpStatusCode.NotFound, ApiErrorResponse.notFound(e.message ?: "Todo를 찾을 수 없습니다"))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ApiErrorResponse.internalError("서버 오류가 발생했습니다"))
+            }
+        }
+        
         // GET /api/todos - Todo 목록 조회
         get {
             try {

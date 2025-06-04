@@ -3,6 +3,7 @@ package com.todoapp.service
 import com.todoapp.storage.InMemoryStorage
 import com.todoapp.models.Todo
 import com.todoapp.models.CreateTodoRequest
+import com.todoapp.models.UpdateTodoRequest
 import com.todoapp.models.Priority
 import com.todoapp.models.TodoFilters
 
@@ -51,6 +52,34 @@ class TodoService(
         
         return storage.findById(id)
             ?: throw IllegalArgumentException("ID $id 에 해당하는 Todo를 찾을 수 없습니다")
+    }
+    
+    /**
+     * 기존 Todo를 업데이트
+     * @param id 업데이트할 Todo의 ID
+     * @param request Todo 업데이트 요청 데이터
+     * @return 업데이트된 Todo 객체
+     * @throws IllegalArgumentException Todo가 존재하지 않거나 유효하지 않은 요청 데이터
+     */
+    fun updateTodo(id: Long, request: UpdateTodoRequest): Todo {
+        require(id > 0) { "ID는 양수여야 합니다" }
+        require(!request.isEmpty()) { "업데이트할 데이터가 없습니다" }
+        
+        // 요청 데이터 유효성 검증
+        request.validate()
+        
+        // 기존 Todo 조회
+        val existingTodo = getTodoById(id)
+        
+        // 저장소에서 업데이트
+        return storage.update(
+            id = id,
+            title = request.title,
+            description = request.description,
+            isCompleted = request.isCompleted,
+            priority = request.priority,
+            dueDate = request.dueDate
+        ) ?: throw IllegalArgumentException("ID $id 에 해당하는 Todo를 찾을 수 없습니다")
     }
     
     /**
