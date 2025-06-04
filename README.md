@@ -49,13 +49,6 @@ vibe-coding/
   - RESTful API 설계
   - 완전한 CRUD 기능
 
-### 🔮 예정된 프로젝트들
-
-- **02-chat-app**: 실시간 채팅 애플리케이션 (WebSocket + Redis)
-- **03-ecommerce**: 이커머스 플랫폼 (Next.js + Prisma)
-- **04-blog-cms**: 블로그 CMS (Headless CMS)
-- **05-portfolio**: 포트폴리오 웹사이트 (Static Generation)
-
 ## 🚀 빠른 시작
 
 ### 필수 요구사항
@@ -203,9 +196,6 @@ chore(deps): update dependencies
 ## 📊 프로젝트 현황
 
 - ✅ **Todo List**: 개발 완료 (v1.0.0)
-- 🔄 **Chat App**: 기획 단계
-- 📋 **E-commerce**: 기획 단계
-- 💭 **Blog CMS**: 아이디어 단계
 
 ## 📞 연락처
 
