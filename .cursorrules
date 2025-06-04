@@ -1,0 +1,136 @@
+# Agent Workflow Rules
+
+## File Modification Scope
+- Modify only ONE file per conversation
+- Complete one connected feature/logic unit only
+- No cross-file dependencies in single conversation session
+- Finish current file completely before moving to next file
+
+## Code Modification Units
+- One complete component implementation
+- One complete custom hook implementation  
+- One complete API route implementation
+- One complete page implementation
+- One complete utility function set
+
+## Incremental Development Rules
+- Implement code in small incremental units (methods/functions)
+- Write maximum 1-2 methods or functions at a time
+- Get user approval before proceeding to next unit
+- Explain each small unit before implementation
+- Allow user to review and approve each increment
+
+## UI Development Rules - MANDATORY STEP-BY-STEP APPROVAL
+- **NEVER implement multiple UI sections simultaneously**
+- **ALWAYS wait for explicit user approval before proceeding to next UI section**
+- Implement UI components ONE SECTION AT A TIME only
+- Break down UI into logical sections (header, main content, footer, sidebar, etc.)
+- Complete one UI section before moving to next section
+- **MANDATORY**: Get user confirmation/approval for each UI section before proceeding
+- **PROHIBITED**: Implementing entire page UI in single edit without step-by-step approval
+- Examples of UI sections that require separate approval:
+  - Header navigation only (wait for approval)
+  - Main content area only (wait for approval)
+  - Form fields (one group at a time, wait for approval)
+  - Button groups (wait for approval)
+  - Modal components (structure → content → actions, each step needs approval)
+  - List items (template → styling → interactions, each step needs approval)
+  - Individual form sections (title input → description → priority → submit button)
+  - Individual table/list components (header → body → pagination)
+
+## UI Section Approval Process
+1. **Explain** what UI section will be implemented
+2. **Ask for explicit permission** before implementing
+3. **Implement ONLY the approved section**
+4. **Show result** and wait for feedback
+5. **Ask for approval** to proceed to next section
+6. **Repeat process** for each UI section
+
+## Conversation Flow
+- Check current file status before modification
+- Verify completion after modification
+- Confirm current work is done before next file
+- Ask for explicit approval before moving to different file
+
+## Code Update Process
+- Provide theoretical explanation for each code update
+- Explain the logic, patterns, and architectural decisions
+- Include why specific technologies/approaches were chosen
+- Wait for user acceptance before proceeding with implementation
+- No code changes without prior explanation and approval
+
+## Code Quality Guidelines
+- Write all comments in Korean (한글)
+- Use descriptive Korean comments for complex logic
+- Maintain consistent Korean commenting style
+- Avoid mixing Korean and English in comments
+
+## Prohibited Actions
+- Simultaneous multi-file modifications
+- Moving to next file with incomplete current file
+- Creating long dependency chains across files
+- Partial implementations that require immediate follow-up in other files
+- Writing large code blocks without incremental approval
+- **PROHIBITED**: Implementing multiple UI sections without step-by-step user approval
+- **PROHIBITED**: Making assumptions about UI design without explicit user confirmation
+
+## File Completion Criteria
+- All functions/components are fully implemented
+- No TODO comments or placeholder code
+- All imports/exports are properly configured
+- File is immediately runnable/testable 
+
+## Commit Guidelines
+- One commit per completed file modification
+- Commit only when file meets completion criteria
+- Use conventional commit format: `type(scope): description`
+- Commit types: feat, fix, docs, style, refactor, test, chore
+- Scope should indicate the specific file or component modified
+- Description should clearly explain what was implemented
+- No commits for partial or incomplete implementations
+- Each commit should represent a working, testable unit
+- **MANDATORY**: Commit frequently in small incremental units
+- **MANDATORY**: Commit after each UI section completion
+- **MANDATORY**: Commit after each bug fix or feature completion
+- **MANDATORY**: Never accumulate large changes without committing
+- Commit message examples:
+  - `feat(todo-api): implement todo CRUD endpoints`
+  - `feat(todo-form): add todo creation component`
+  - `docs(readme): add project setup instructions`
+  - `fix(todo-list): resolve sorting issue`
+  - `fix(api): resolve dueDate format issue for todo creation`
+  - `feat(ui): add todo list display section`
+  - `style(header): improve responsive design`
+
+## Problem Resolution Documentation
+- Document all resolved issues with comprehensive analysis
+- Mandatory reporting format when fixing problems:
+  1. **Problem Description**: Clear description of the error/issue (include error messages, symptoms)
+  2. **Root Cause Analysis**: Explain why the problem occurred
+  3. **Solution Implemented**: Detail what was changed and how
+  4. **Code Comparison**: Show before/after code snippets with clear diff
+  5. **Verification**: Confirm the fix with test results or validation
+- Include file paths and line numbers in problem reports
+- Use Korean for explanations and documentation
+- Create reusable knowledge base for similar future issues
+- Example format:
+  ```
+  ## 🔧 문제 해결 보고
+  
+  ### 🚨 발생한 문제
+  - 오류: [오류 메시지나 증상]
+  - 파일: [파일 경로:라인 번호]
+  
+  ### 🔍 원인 분석
+  - [왜 발생했는지 분석]
+  
+  ### ✅ 해결 방법
+  - [어떻게 수정했는지]
+  
+  ### 📝 코드 변경사항
+  - 수정 전: [기존 코드]
+  - 수정 후: [새로운 코드]
+  
+  ### 🧪 검증 결과
+  - [테스트 결과나 동작 확인]
+  ``` 
