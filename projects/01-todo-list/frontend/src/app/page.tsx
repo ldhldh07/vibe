@@ -1,11 +1,42 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Todo, Priority, CreateTodoRequest, UpdateTodoRequest } from '@/types/api';
 import { getTodos, createTodo, updateTodo, deleteTodo } from '@/lib/api';
 
 // 필터 타입 정의
 type FilterType = 'ALL' | 'COMPLETED' | 'PENDING';
+
+// YouTube Player 타입 정의
+interface YouTubePlayer {
+  playVideo: () => void;
+  pauseVideo: () => void;
+  setVolume: (volume: number) => void;
+  destroy: () => void;
+}
+
+declare global {
+  interface Window {
+    YT: {
+      Player: new (elementId: string, config: {
+        height: string;
+        width: string;
+        videoId: string;
+        origin?: string;
+        playerVars: Record<string, number>;
+        events: {
+          onReady: (event: { target: YouTubePlayer }) => void;
+          onStateChange: (event: { data: number }) => void;
+        };
+      }) => YouTubePlayer;
+      PlayerState: {
+        PLAYING: number;
+        PAUSED: number;
+      };
+    };
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
 
 export default function TodoPage() {
   // 상태 관리
@@ -13,6 +44,92 @@ export default function TodoPage() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'ALL'>('ALL');
+
+  // 음악 플레이어 상태 추가
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(100);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
+  
+  // YouTube 플레이어 참조
+  const playerRef = useRef<YouTubePlayer | null>(null);
+
+  // 아이유 네버엔딩 스토리 YouTube 비디오 ID
+  const VIDEO_ID = '6J9ixwhDYSM'; // 아이유 - 네버엔딩 스토리 공식 MV
+
+  // YouTube Player API 초기화
+  useEffect(() => {
+    // YouTube API가 로드될 때까지 대기
+    const initializePlayer = () => {
+      if (window.YT && window.YT.Player) {
+        playerRef.current = new window.YT.Player('youtube-player', {
+          height: '0',
+          width: '0',
+          videoId: VIDEO_ID,
+          origin: window.location.origin,
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            iv_load_policy: 3,
+            modestbranding: 1,
+            rel: 0,
+            showinfo: 0,
+            enablejsapi: 1,
+            start: 30,
+          },
+          events: {
+            onReady: (event: { target: YouTubePlayer }) => {
+              console.log('YouTube 플레이어가 준비되었습니다!');
+              setIsPlayerReady(true);
+              event.target.setVolume(100);
+              event.target.playVideo();
+            },
+            onStateChange: (event: { data: number }) => {
+              if (event.data === window.YT.PlayerState.PLAYING) {
+                setIsPlaying(true);
+              } else if (event.data === window.YT.PlayerState.PAUSED) {
+                setIsPlaying(false);
+              }
+            },
+          },
+        });
+      }
+    };
+
+    // YouTube API 콜백 함수 설정
+    window.onYouTubeIframeAPIReady = initializePlayer;
+
+    // 이미 API가 로드된 경우 바로 초기화
+    if (window.YT && window.YT.Player) {
+      initializePlayer();
+    }
+
+    return () => {
+      // 컴포넌트 언마운트 시 플레이어 정리
+      if (playerRef.current && playerRef.current.destroy) {
+        playerRef.current.destroy();
+      }
+    };
+  }, []);
+
+  // 볼륨 변경 시 플레이어에 반영
+  useEffect(() => {
+    if (playerRef.current && playerRef.current.setVolume) {
+      playerRef.current.setVolume(volume);
+    }
+  }, [volume]);
+
+  // 음악 재생/일시정지 핸들러
+  const handleTogglePlay = () => {
+    if (!playerRef.current || !isPlayerReady) return;
+
+    if (isPlaying) {
+      playerRef.current.pauseVideo();
+    } else {
+      playerRef.current.playVideo();
+    }
+  };
 
   // Todo 입력 폼 상태
   const [formData, setFormData] = useState<CreateTodoRequest>({
@@ -181,18 +298,81 @@ export default function TodoPage() {
                 할 일을 체계적으로 관리해보세요
               </p>
             </div>
-            <div className="flex gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{totalCount}</div>
-                <div className="text-sm text-gray-500">전체</div>
+
+            {/* 음악 컨트롤러 */}
+            <div className="flex items-center gap-6">
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-3">
+                <div className="flex items-center gap-3">
+                  {/* 앨범 커버 이미지 */}
+                  <div className="flex-shrink-0">
+                    <img
+                      src="https://i.namu.wiki/i/d_G3G3BhiY-f00ctiP1fiZsWWogzE00VH8zEsqkoQmi_fXTgwkD-nLIAtyx_MfoJLn8Mxh3ywwSRHQADjgFvQ_RySqRjUcXHucIaFHYVZIVd_V0VjuqzCyvPnqdR2lXXSpUcIE_Ze5MqJmfO93JiCA.webp"
+                      alt="아이유 - 꽃-갈피셋 앨범 커버"
+                      className="w-12 h-12 rounded-lg object-cover shadow-sm border border-purple-100"
+                      onError={(e) => {
+                        // 이미지 로드 실패 시 대체 이미지 표시
+                        e.currentTarget.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iNCIgZmlsbD0iIzk4NTVmNyIvPgo8cGF0aCBkPSJNMjQgMTZjLTQuNDEgMC04IDMuNTktOCA4czMuNTkgOCA4IDggOC0zLjU5IDgtOC0zLjU5LTgtOC04em0wIDEwYy0xLjEgMC0yLS45LTItMnMuOS0yIDItMiAyIC45IDIgMi0uOSAyLTIgMnoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=";
+                      }}
+                    />
+                  </div>
+
+                  {/* 곡 정보 */}
+                  <div className="text-left min-w-0 flex-1">
+                    <div className="text-xs text-purple-600 font-medium">🎵 Now Playing</div>
+                    <div className="text-sm font-medium text-gray-800 truncate">
+                      네버엔딩 스토리
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">
+                      아이유 (IU)
+                    </div>
+                  </div>
+
+                  {/* 재생/일시정지 버튼 */}
+                  <button
+                    onClick={handleTogglePlay}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
+                      isPlaying 
+                        ? 'bg-purple-500 text-white shadow-lg hover:bg-purple-600' 
+                        : 'bg-white border-2 border-purple-300 text-purple-500 hover:bg-purple-50'
+                    }`}
+                    disabled={!isPlayerReady}
+                  >
+                    {isPlaying ? '⏸️' : '▶️'}
+                  </button>
+
+                  {/* 볼륨 조절 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🔊</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={volume}
+                      onChange={(e) => setVolume(Number(e.target.value))}
+                      className="w-16 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer slider"
+                      style={{
+                        background: `linear-gradient(to right, #a855f7 0%, #a855f7 ${volume}%, #e9d5ff ${volume}%, #e9d5ff 100%)`
+                      }}
+                    />
+                    <span className="text-xs text-gray-600 min-w-8">{volume}%</span>
+                  </div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{completedCount}</div>
-                <div className="text-sm text-gray-500">완료</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">{pendingCount}</div>
-                <div className="text-sm text-gray-500">대기</div>
+
+              {/* 통계 */}
+              <div className="flex gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{totalCount}</div>
+                  <div className="text-sm text-gray-500">전체</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{completedCount}</div>
+                  <div className="text-sm text-gray-500">완료</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">{pendingCount}</div>
+                  <div className="text-sm text-gray-500">대기</div>
+                </div>
               </div>
             </div>
           </div>
@@ -471,6 +651,9 @@ export default function TodoPage() {
           )}
         </section>
       </main>
+
+      {/* 숨겨진 YouTube 플레이어 */}
+      <div id="youtube-player" style={{ display: 'none' }}></div>
     </div>
   );
 }
