@@ -102,6 +102,30 @@
   - `feat(ui): add todo list display section`
   - `style(header): improve responsive design`
 
+## Push Guidelines
+- **MANDATORY**: Push regularly to backup progress and enable collaboration
+- **MANDATORY**: Push after every 2-3 commits maximum
+- **MANDATORY**: Push after completing any significant feature or fix
+- **MANDATORY**: Push at the end of each development session
+- **MANDATORY**: Push before switching to different features or files
+- Push triggers:
+  - After UI section completion and commit
+  - After bug fix completion and commit
+  - After feature completion and commit
+  - Before ending work session
+  - Before major refactoring
+  - After reaching milestone or checkpoint
+- Pre-push checklist:
+  - Verify all commits have meaningful messages
+  - Ensure no sensitive data in commits
+  - Confirm code is in working state
+  - Check no large files or build artifacts included
+- Push frequency examples:
+  - Complete a UI component → commit → push
+  - Fix 2-3 bugs → push accumulated commits
+  - Finish feature implementation → push
+  - End of coding session → push any pending commits
+
 ## Problem Resolution Documentation
 - Document all resolved issues with comprehensive analysis
 - Mandatory reporting format when fixing problems:
