@@ -45,37 +45,67 @@ todo-app/
 └── README.md
 ```
 
-## ⚡ 빠른 시작
+## 🚀 Todo App - 빠른 실행 가이드
 
-### 필수 요구사항
-- **Node.js** 18+ 
-- **pnpm** 8+
-- **JDK** 17+
-- **Git**
+## ⚡ 백엔드만 실행 (가장 빠름!)
 
-### 설치 및 실행
+```bash
+# 프로젝트 루트에서
+pnpm backend
 
-1. **저장소 클론**
-   ```bash
-   git clone <repository-url>
-   cd todo-app
-   ```
+# 또는 백엔드 폴더에서 직접
+cd backend
+./start.sh
+```
 
-2. **백엔드 실행**
-   ```bash
-   cd backend
-   ./gradlew run
-   # 또는 Windows: gradlew.bat run
-   ```
-   - 서버: http://localhost:8080
+## 🔥 개발 모드 (hot reload)
 
-3. **프론트엔드 실행** (새 터미널)
-   ```bash
-   cd frontend
-   pnpm install
-   pnpm dev
-   ```
-   - 웹앱: http://localhost:3000
+```bash
+# 프로젝트 루트에서
+pnpm backend:dev
+
+# 또는 백엔드 폴더에서 직접
+cd backend
+./dev.sh
+```
+
+## 🎯 풀스택 실행 (백엔드 + 프론트엔드 동시)
+
+```bash
+# 프로젝트 루트에서
+pnpm fullstack
+```
+
+## 🛑 백엔드 종료
+
+```bash
+pnpm backend:kill
+```
+
+## 📍 주요 엔드포인트
+
+- 백엔드: http://localhost:8080
+- 프론트엔드: http://localhost:3000
+- 헬스체크: http://localhost:8080/health
+- API 문서: http://localhost:8080/api
+
+## 🔧 문제 해결
+
+### 포트가 이미 사용중일 때
+```bash
+pnpm backend:kill
+```
+
+### JAR 파일이 없다는 오류
+```bash
+cd backend
+./gradlew clean build
+./start.sh
+```
+
+### gradle이 83%에서 멈출 때
+- JAR 실행 방식을 사용하므로 문제없음
+- `./start.sh` 스크립트가 자동으로 해결
 
 ## 🔧 개발 환경
 
