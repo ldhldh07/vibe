@@ -1,5 +1,0 @@
-packages:
-  # 프로젝트들
-  - 'projects/*'
-  # 공유 라이브러리들  
-  - 'shared/*' 
