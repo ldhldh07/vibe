@@ -17,6 +17,7 @@ import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 import com.todoapp.routes.todoRoutes
 import com.todoapp.routes.profileRoutes
+import com.todoapp.routes.authRoutes
 import com.todoapp.models.*
 import com.todoapp.utils.FileUploadUtils
 
@@ -188,6 +189,9 @@ fun Application.configureRouting() {
             
             // 프로필 API 라우팅 등록
             profileRoutes()
+            
+            // 인증 API 라우팅 등록
+            authRoutes()
         }
     }
 } 
