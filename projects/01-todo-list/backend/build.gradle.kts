@@ -55,6 +55,10 @@ dependencies {
     implementation("io.ktor:ktor-server-auth-jvm")
     implementation("io.ktor:ktor-server-auth-jwt-jvm")
     
+    // File Upload & Serving
+    implementation("io.ktor:ktor-server-partial-content-jvm")
+    implementation("io.ktor:ktor-server-auto-head-response-jvm")
+    
     // Kotlinx DateTime for ISO 8601 support
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
     

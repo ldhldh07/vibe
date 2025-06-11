@@ -9,12 +9,15 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.defaultheaders.*
 import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.plugins.partialcontent.*
+import io.ktor.server.plugins.autohead.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 import com.todoapp.routes.todoRoutes
 import com.todoapp.models.*
+import com.todoapp.utils.FileUploadUtils
 
 fun main() {
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module)
@@ -22,8 +25,27 @@ fun main() {
 }
 
 fun Application.module() {
+    // 파일 업로드 디렉토리 초기화
+    initializeFileUpload()
+    
     configurePlugins()
     configureRouting()
+}
+
+/**
+ * 파일 업로드 시스템을 초기화합니다
+ */
+fun Application.initializeFileUpload() {
+    try {
+        val initialized = FileUploadUtils.initializeUploadDirectories()
+        if (initialized) {
+            log.info("✅ 파일 업로드 시스템 초기화 완료")
+        } else {
+            log.error("❌ 파일 업로드 시스템 초기화 실패")
+        }
+    } catch (e: Exception) {
+        log.error("❌ 파일 업로드 시스템 초기화 중 오류 발생: ${e.message}")
+    }
 }
 
 fun Application.configurePlugins() {
@@ -64,6 +86,12 @@ fun Application.configurePlugins() {
         header("X-Engine", "Ktor")
         header("X-API-Version", "1.0.0")
     }
+    
+    // Partial Content (파일 다운로드 지원)
+    install(PartialContent)
+    
+    // Auto Head Response (HEAD 요청 자동 처리)
+    install(AutoHeadResponse)
     
     // Status Pages (Error Handling)
     install(StatusPages) {
