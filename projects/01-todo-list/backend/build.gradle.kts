@@ -51,6 +51,10 @@ dependencies {
     // Validation
     implementation("io.ktor:ktor-server-request-validation-jvm")
     
+    // Authentication & JWT
+    implementation("io.ktor:ktor-server-auth-jvm")
+    implementation("io.ktor:ktor-server-auth-jwt-jvm")
+    
     // Kotlinx DateTime for ISO 8601 support
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
     
