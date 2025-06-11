@@ -32,6 +32,12 @@ object JwtConfig {
         .build()
     
     /**
+     * JWT 검증기를 반환합니다 (Ktor JWT 플러그인용)
+     * @return JWT 검증기
+     */
+    fun getVerifier(): JWTVerifier = verifier
+    
+    /**
      * JWT 토큰 생성 결과를 담는 데이터 클래스
      */
     data class TokenResult(

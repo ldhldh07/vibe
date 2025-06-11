@@ -11,6 +11,8 @@ import io.ktor.server.plugins.defaultheaders.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.plugins.partialcontent.*
 import io.ktor.server.plugins.autohead.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
@@ -20,6 +22,7 @@ import com.todoapp.routes.profileRoutes
 import com.todoapp.routes.authRoutes
 import com.todoapp.models.*
 import com.todoapp.utils.FileUploadUtils
+import com.todoapp.auth.JwtConfig
 
 fun main() {
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module)
@@ -31,6 +34,7 @@ fun Application.module() {
     initializeFileUpload()
     
     configurePlugins()
+    configureAuthentication()
     configureRouting()
 }
 
@@ -48,6 +52,57 @@ fun Application.initializeFileUpload() {
     } catch (e: Exception) {
         log.error("❌ 파일 업로드 시스템 초기화 중 오류 발생: ${e.message}")
     }
+}
+
+/**
+ * JWT 인증 시스템을 설정합니다
+ */
+fun Application.configureAuthentication() {
+    install(Authentication) {
+        jwt("auth-jwt") {
+            // JWT 검증기 설정
+            verifier(JwtConfig.getVerifier())
+            
+            // JWT 설정 정보
+            realm = "Todo App JWT Realm"
+            
+            // JWT 토큰 검증 및 Principal 생성
+            validate { credential ->
+                try {
+                    // JWT payload에서 사용자 정보 추출
+                    val userId = credential.payload.getClaim("userId").asString()
+                    val email = credential.payload.getClaim("email").asString()
+                    
+                    if (userId != null && email != null) {
+                        // JWTPrincipal 반환 (Ktor 표준)
+                        JWTPrincipal(credential.payload)
+                    } else {
+                        this@configureAuthentication.log.warn("JWT 토큰에 필수 클레임이 누락됨: userId=$userId, email=$email")
+                        null
+                    }
+                } catch (e: Exception) {
+                    this@configureAuthentication.log.error("JWT Principal 생성 실패: ${e.message}")
+                    null
+                }
+            }
+            
+            // 인증 실패시 응답
+            challenge { _, _ ->
+                call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ApiErrorResponse(
+                        success = false,
+                        error = ErrorDetails(
+                            code = "AUTHENTICATION_REQUIRED",
+                            message = "유효한 JWT 토큰이 필요합니다."
+                        )
+                    )
+                )
+            }
+        }
+    }
+    
+    log.info("✅ JWT 인증 시스템 설정 완료")
 }
 
 fun Application.configurePlugins() {
@@ -180,18 +235,21 @@ fun Application.configureRouting() {
             get("/") {
                 call.respond(
                     HttpStatusCode.OK,
-                    """{"success": true, "data": {"message": "Todo API v1.0.0", "endpoints": ["GET /api/todos - Get all todos", "POST /api/todos - Create a new todo", "GET /api/todos/{id} - Get todo by ID", "DELETE /api/todos/{id} - Delete todo"]}}"""
+                    """{"success": true, "data": {"message": "Todo API v1.0.0 with JWT Authentication", "endpoints": ["POST /api/auth/register - 회원가입", "POST /api/auth/login - 로그인", "GET /api/auth/me - 현재 사용자 (JWT)", "GET /api/todos - 모든 할일 (JWT)", "POST /api/todos - 할일 생성 (JWT)", "POST /api/users/profile/upload - 프로필 이미지 업로드 (JWT)"]}}"""
                 )
             }
             
-            // Todo API 라우팅 등록
-            todoRoutes()
-            
-            // 프로필 API 라우팅 등록
-            profileRoutes()
-            
-            // 인증 API 라우팅 등록
+            // 🔓 공개 API (인증 불필요)
             authRoutes()
+            
+            // 🔐 보호된 API (JWT 인증 필요)
+            authenticate("auth-jwt") {
+                // Todo API 라우팅 등록 (인증 필요)
+                todoRoutes()
+                
+                // 프로필 API 라우팅 등록 (인증 필요)
+                profileRoutes()
+            }
         }
     }
 } 

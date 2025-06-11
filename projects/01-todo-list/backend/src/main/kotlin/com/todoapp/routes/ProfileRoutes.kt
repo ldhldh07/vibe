@@ -88,6 +88,9 @@ private suspend fun handleProfileImageUpload(call: ApplicationCall) {
                 is PartData.BinaryItem -> {
                     // 바이너리 데이터 처리 (필요시)
                 }
+                is PartData.BinaryChannelItem -> {
+                    // 바이너리 채널 데이터 처리 (필요시)
+                }
             }
             part.dispose()
         }
@@ -180,11 +183,11 @@ private suspend fun handleProfileImageGet(call: ApplicationCall) {
             // 파일 MIME 타입 결정
             val mimeType = FileUploadUtils.getMimeType(profileImageFile.name)
             
+            // Content-Type 헤더 설정
+            call.response.header("Content-Type", mimeType)
+            
             // 파일 응답
-            call.respondFile(
-                file = profileImageFile,
-                contentType = ContentType.parse(mimeType)
-            )
+            call.respondFile(profileImageFile)
         } else {
             // 기본 프로필 이미지가 있다면 여기서 제공
             // 현재는 404 응답

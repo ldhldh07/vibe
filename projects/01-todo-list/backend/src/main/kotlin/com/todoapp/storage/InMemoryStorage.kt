@@ -62,6 +62,39 @@ class InMemoryStorage {
     }
     
     /**
+     * 기존 Todo를 업데이트
+     * @param id 업데이트할 Todo의 ID
+     * @param title 새로운 제목 (null이면 기존값 유지)
+     * @param description 새로운 설명 (null이면 기존값 유지)
+     * @param isCompleted 새로운 완료 상태 (null이면 기존값 유지)
+     * @param priority 새로운 우선순위 (null이면 기존값 유지)
+     * @param dueDate 새로운 마감일 (null이면 기존값 유지)
+     * @return 업데이트된 Todo 객체, 해당 ID가 없으면 null
+     */
+    fun update(
+        id: Long, 
+        title: String? = null, 
+        description: String? = null, 
+        isCompleted: Boolean? = null, 
+        priority: Priority? = null, 
+        dueDate: Instant? = null
+    ): Todo? {
+        val existingTodo = todos[id] ?: return null
+        
+        val updatedTodo = existingTodo.copy(
+            title = title ?: existingTodo.title,
+            description = description ?: existingTodo.description,
+            isCompleted = isCompleted ?: existingTodo.isCompleted,
+            priority = priority ?: existingTodo.priority,
+            dueDate = dueDate ?: existingTodo.dueDate,
+            updatedAt = Clock.System.now()
+        )
+        
+        todos[id] = updatedTodo
+        return updatedTodo
+    }
+    
+    /**
      * 필터와 정렬 조건에 따라 Todo 목록을 조회
      * @param filters 필터링 및 정렬 조건
      * @return 조건에 맞는 Todo 목록
