@@ -16,6 +16,7 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 import com.todoapp.routes.todoRoutes
+import com.todoapp.routes.profileRoutes
 import com.todoapp.models.*
 import com.todoapp.utils.FileUploadUtils
 
@@ -184,6 +185,9 @@ fun Application.configureRouting() {
             
             // Todo API 라우팅 등록
             todoRoutes()
+            
+            // 프로필 API 라우팅 등록
+            profileRoutes()
         }
     }
 } 
