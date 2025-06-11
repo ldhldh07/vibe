@@ -54,6 +54,7 @@ dependencies {
     // Authentication & JWT
     implementation("io.ktor:ktor-server-auth-jvm")
     implementation("io.ktor:ktor-server-auth-jwt-jvm")
+    implementation("com.auth0:java-jwt:4.4.0")
     
     // File Upload & Serving
     implementation("io.ktor:ktor-server-partial-content-jvm")
