@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from "next/navigation";
 import { Todo, Priority, CreateTodoRequest, UpdateTodoRequest, Project, ProjectMember, InviteMemberRequest, UpdateProjectRequest } from '@/types/api';
 import { getTodosByProject, createTodo, updateTodo, deleteTodo, getProjectMembers, inviteMember, removeMember, updateProject } from '@/lib/api';
+import { getCurrentUserId, getCurrentUser, validateToken } from '@/lib/auth';
 import ProjectSelector from './components/ProjectSelector';
 
 // 필터 타입 정의
@@ -44,11 +45,10 @@ export default function TodoPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // localStorage에서 토큰 확인
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!token) {
-      // 토큰 없으면 로그인 페이지로 강제 이동
+    // 토큰 유효성 검사 및 자동 로그아웃
+    if (!validateToken()) {
       router.replace("/login");
+      return;
     }
   }, [router]);
 
@@ -279,8 +279,10 @@ export default function TodoPage() {
   const getCurrentUserRole = (): string | null => {
     if (!selectedProject || projectMembers.length === 0) return null;
     
-    // 현재 사용자 ID (임시로 1로 설정, 실제로는 JWT에서 추출해야 함)
-    const currentUserId = 1;
+    // JWT에서 현재 사용자 ID 추출
+    const currentUserId = getCurrentUserId();
+    if (!currentUserId) return null;
+    
     const currentMember = projectMembers.find(member => member.userId === currentUserId);
     
     return currentMember?.role || null;
@@ -502,8 +504,9 @@ export default function TodoPage() {
     // 할당자 필터
     if (assigneeFilter !== 'ALL') {
       if (assigneeFilter === 0) {
-        // "나에게 할당된 것"을 선택한 경우 - 현재 사용자 ID로 필터링 (임시로 createdBy 사용)
-        if (todo.assignedTo !== todo.createdBy) return false;
+        // "나에게 할당된 것"을 선택한 경우 - 현재 사용자 ID로 필터링
+        const currentUserId = getCurrentUserId();
+        if (!currentUserId || todo.assignedTo !== currentUserId) return false;
       } else {
         // 특정 사용자에게 할당된 것
         if (todo.assignedTo !== assigneeFilter) return false;
@@ -518,8 +521,36 @@ export default function TodoPage() {
   const completedCount = todos.filter(todo => todo.isCompleted).length;
   const pendingCount = totalCount - completedCount;
 
+  // 현재 사용자 정보 가져오기
+  const currentUser = getCurrentUser();
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* 사용자 정보 헤더 */}
+      <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <h1 className="text-xl font-semibold text-gray-900">협업 Todo 시스템</h1>
+            {currentUser && (
+              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                👤 {currentUser.username} (ID: {currentUser.userId})
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              if (confirm('로그아웃 하시겠습니까?')) {
+                localStorage.removeItem('token');
+                router.replace('/login');
+              }
+            }}
+            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+          >
+            🚪 로그아웃
+          </button>
+        </div>
+      </div>
+
       {/* 프로젝트 선택 헤더 */}
       <ProjectSelector 
         selectedProject={selectedProject}
