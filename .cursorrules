@@ -1,5 +1,20 @@
 # Agent Workflow Rules
 
+## 새 대화 시작 시 자동 상황 파악 (MANDATORY)
+- **ALWAYS** 새로운 대화 시작 시 다음 순서로 자동 실행:
+  1. `projects/01-todo-list/QUICK_START.md` 읽기 (필수)
+  2. `projects/01-todo-list/PROJECT_STATUS.md` 읽기 (필수)  
+  3. `projects/01-todo-list/WORK_LOG.md` 읽기 (선택적)
+  4. 현재 백엔드 컴파일 상태 확인: `cd projects/01-todo-list/backend && ./gradlew compileKotlin`
+  5. 포트 사용 현황 확인: `lsof -i :8080` (백엔드), `lsof -i :3000` (프론트엔드)
+  6. 상황 파악 후 우선순위 작업 자동 시작
+
+## 자동 상황 파악 후 행동 규칙
+- 문서 읽기 완료 후 **즉시** 현재 상황 요약 제시
+- 가장 우선순위 높은 문제부터 **자동으로** 해결 시작
+- 사용자에게 별도 지시 요청하지 말고 **능동적으로** 작업 진행
+- 각 단계별 진행상황을 실시간으로 보고
+
 ## File Modification Scope
 - Modify only ONE file per conversation
 - Complete one connected feature/logic unit only
@@ -73,6 +88,7 @@
 - Writing large code blocks without incremental approval
 - **PROHIBITED**: Implementing multiple UI sections without step-by-step user approval
 - **PROHIBITED**: Making assumptions about UI design without explicit user confirmation
+- **PROHIBITED**: Starting work without reading project status documents first
 
 ## File Completion Criteria
 - All functions/components are fully implemented
