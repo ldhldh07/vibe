@@ -193,5 +193,87 @@ JWT Token: 로그인 시 발급됨
 
 ---
 
-**마지막 업데이트**: 2024-01-15 22:30 KST  
-**다음 작업**: 백엔드 컴파일 에러 해결부터 시작 
+## 🧪 **내일 테스트 코드 작업 빠른 참조**
+
+### **테스트 환경 설정 명령어**
+
+#### **백엔드 테스트 설정**
+```bash
+# 테스트 의존성 확인
+cd projects/01-todo-list/backend && ./gradlew dependencies | grep test
+
+# 테스트 실행
+cd projects/01-todo-list/backend && ./gradlew test
+
+# 테스트 커버리지 리포트 생성
+cd projects/01-todo-list/backend && ./gradlew jacocoTestReport
+
+# 특정 테스트 클래스 실행
+cd projects/01-todo-list/backend && ./gradlew test --tests "AuthServiceTest"
+```
+
+#### **프론트엔드 테스트 설정**
+```bash
+# 테스트 의존성 설치
+cd projects/01-todo-list/frontend && pnpm add -D @testing-library/react @testing-library/jest-dom jest jest-environment-jsdom
+
+# 테스트 실행
+cd projects/01-todo-list/frontend && pnpm test
+
+# 테스트 커버리지 확인
+cd projects/01-todo-list/frontend && pnpm test -- --coverage
+
+# 특정 테스트 파일 실행
+cd projects/01-todo-list/frontend && pnpm test -- Navbar.test.tsx
+```
+
+### **테스트 파일 구조**
+```
+Backend Tests:
+src/test/kotlin/com/todoapp/
+├── service/
+│   ├── AuthServiceTest.kt
+│   ├── ProjectServiceTest.kt
+│   └── TodoServiceTest.kt
+├── routes/
+│   ├── AuthRoutesTest.kt
+│   ├── ProjectRoutesTest.kt
+│   └── TodoRoutesTest.kt
+└── config/
+    └── JwtConfigTest.kt
+
+Frontend Tests:
+src/__tests__/
+├── components/
+│   ├── Navbar.test.tsx
+│   ├── ProjectSelector.test.tsx
+│   └── TodoList.test.tsx
+├── lib/
+│   ├── api.test.ts
+│   └── auth.test.ts
+└── pages/
+    ├── login.test.tsx
+    └── index.test.tsx
+```
+
+### **테스트 작업 체크리스트**
+```
+□ 백엔드 컴파일 에러 해결 (선행 작업)
+□ 백엔드 테스트 의존성 추가
+□ AuthService 단위 테스트 작성
+□ ProjectService 단위 테스트 작성
+□ TodoService 단위 테스트 작성
+□ JWT 토큰 테스트 작성
+□ API 엔드포인트 통합 테스트 작성
+□ 프론트엔드 테스트 의존성 추가
+□ 컴포넌트 테스트 작성
+□ API 클라이언트 테스트 작성
+□ E2E 테스트 환경 설정
+□ CI/CD 파이프라인 구축
+□ 테스트 커버리지 목표 달성 확인
+```
+
+---
+
+**마지막 업데이트**: 2024-01-15 22:21 KST  
+**다음 작업**: 백엔드 컴파일 에러 해결 → 테스트 코드 구현 
