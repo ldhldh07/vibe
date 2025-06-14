@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from "next/navigation";
-import { Todo, Priority, CreateTodoRequest, UpdateTodoRequest, Project, ProjectMember, InviteMemberRequest } from '@/types/api';
-import { getTodosByProject, createTodo, updateTodo, deleteTodo, getProjectMembers, inviteMember, removeMember } from '@/lib/api';
+import { Todo, Priority, CreateTodoRequest, UpdateTodoRequest, Project, ProjectMember, InviteMemberRequest, UpdateProjectRequest } from '@/types/api';
+import { getTodosByProject, createTodo, updateTodo, deleteTodo, getProjectMembers, inviteMember, removeMember, updateProject } from '@/lib/api';
 import ProjectSelector from './components/ProjectSelector';
 
 // 필터 타입 정의
@@ -275,9 +275,31 @@ export default function TodoPage() {
     }
   };
 
+  // 현재 사용자의 프로젝트 역할 확인
+  const getCurrentUserRole = (): string | null => {
+    if (!selectedProject || projectMembers.length === 0) return null;
+    
+    // 현재 사용자 ID (임시로 1로 설정, 실제로는 JWT에서 추출해야 함)
+    const currentUserId = 1;
+    const currentMember = projectMembers.find(member => member.userId === currentUserId);
+    
+    return currentMember?.role || null;
+  };
+
+  // 수정 권한 확인
+  const canEditProject = (): boolean => {
+    const userRole = getCurrentUserRole();
+    return userRole === 'OWNER' || userRole === 'ADMIN';
+  };
+
   // 프로젝트 수정 모드 시작
   const handleStartEdit = () => {
     if (!selectedProject) return;
+    
+    if (!canEditProject()) {
+      alert('프로젝트를 수정할 권한이 없습니다. (관리자 이상 필요)');
+      return;
+    }
     
     setEditForm({
       name: selectedProject.name,
@@ -301,24 +323,57 @@ export default function TodoPage() {
   const handleSaveProject = async () => {
     if (!selectedProject) return;
     
+    // 입력 검증
+    if (!editForm.name.trim()) {
+      alert('프로젝트 이름을 입력해주세요.');
+      return;
+    }
+    
+    if (editForm.name.trim().length < 2) {
+      alert('프로젝트 이름은 최소 2글자 이상이어야 합니다.');
+      return;
+    }
+    
     setIsSaving(true);
     
-    // TODO: updateProject API 호출 구현 필요
-    // const result = await updateProject(selectedProject.id, editForm);
+    const updateData: UpdateProjectRequest = {
+      name: editForm.name.trim(),
+      description: editForm.description.trim(),
+      isPrivate: editForm.isPrivate
+    };
     
-    // 임시로 성공 처리
-    setTimeout(() => {
-      setSelectedProject(prev => prev ? {
-        ...prev,
-        name: editForm.name,
-        description: editForm.description,
-        isPrivate: editForm.isPrivate
-      } : null);
+    try {
+      const result = await updateProject(selectedProject.id, updateData);
       
-      setIsEditing(false);
+      if (result.success) {
+        // 성공 시 로컬 상태 업데이트
+        setSelectedProject(prev => prev ? {
+          ...prev,
+          name: updateData.name || prev.name,
+          description: updateData.description || prev.description,
+          isPrivate: updateData.isPrivate !== undefined ? updateData.isPrivate : prev.isPrivate
+        } : null);
+        
+        setIsEditing(false);
+        alert('✅ 프로젝트 정보가 성공적으로 수정되었습니다.');
+      } else {
+        // API 에러 처리
+        const errorMessage = result.error?.message || '프로젝트 수정에 실패했습니다.';
+        
+        if (result.error?.code === 'NETWORK_ERROR') {
+          alert('🌐 네트워크 연결을 확인해주세요.');
+        } else if (result.error?.code === 'PERMISSION_DENIED') {
+          alert('🚫 프로젝트를 수정할 권한이 없습니다.');
+        } else {
+          alert(`❌ ${errorMessage}`);
+        }
+      }
+    } catch (error) {
+      console.error('프로젝트 수정 중 예외 발생:', error);
+      alert('❌ 예상치 못한 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
       setIsSaving(false);
-      alert('프로젝트 정보가 성공적으로 수정되었습니다.');
-    }, 1000);
+    }
   };
 
   // 새 Todo 생성
@@ -960,7 +1015,7 @@ export default function TodoPage() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-medium text-gray-900">프로젝트 정보</h3>
-                    {!isEditing && (
+                    {!isEditing && canEditProject() && (
                       <button
                         onClick={handleStartEdit}
                         className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
