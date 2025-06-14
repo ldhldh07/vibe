@@ -20,6 +20,7 @@ import org.slf4j.event.Level
 import com.todoapp.routes.todoRoutes
 import com.todoapp.routes.profileRoutes
 import com.todoapp.routes.authRoutes
+import com.todoapp.routes.projectRoutes
 import com.todoapp.models.*
 import com.todoapp.utils.FileUploadUtils
 import com.todoapp.auth.JwtConfig
@@ -246,6 +247,9 @@ fun Application.configureRouting() {
             authenticate("auth-jwt") {
                 // Todo API 라우팅 등록 (인증 필요)
                 todoRoutes()
+                
+                // Project API 라우팅 등록 (인증 필요)
+                projectRoutes()
                 
                 // 프로필 API 라우팅 등록 (인증 필요)
                 profileRoutes()
