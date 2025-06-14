@@ -18,9 +18,13 @@ async function apiRequest<T>(
 ): Promise<ApiResult<T>> {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  // localStorage에서 토큰을 읽어와 헤더에 추가 (클라이언트 환경에서만)
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
   const defaultOptions: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   };
