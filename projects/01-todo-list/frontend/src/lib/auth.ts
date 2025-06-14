@@ -3,8 +3,9 @@
  */
 
 interface JWTPayload {
-  userId: number;
-  username: string;
+  userId: string; // 백엔드에서는 문자열 UUID
+  email: string;
+  name: string;
   exp: number;
   iat: number;
 }
@@ -36,7 +37,7 @@ export function decodeJWT(token: string): JWTPayload | null {
 /**
  * 현재 로그인한 사용자의 ID를 반환
  */
-export function getCurrentUserId(): number | null {
+export function getCurrentUserId(): string | null {
   if (typeof window === 'undefined') return null;
   
   const token = localStorage.getItem('token');
@@ -49,7 +50,7 @@ export function getCurrentUserId(): number | null {
 /**
  * 현재 로그인한 사용자의 정보를 반환
  */
-export function getCurrentUser(): { userId: number; username: string } | null {
+export function getCurrentUser(): { userId: string; username: string; email: string } | null {
   if (typeof window === 'undefined') return null;
   
   const token = localStorage.getItem('token');
@@ -60,7 +61,8 @@ export function getCurrentUser(): { userId: number; username: string } | null {
 
   return {
     userId: payload.userId,
-    username: payload.username
+    username: payload.name, // 백엔드의 name을 username으로 매핑
+    email: payload.email
   };
 }
 
@@ -84,6 +86,7 @@ export function isTokenExpired(token?: string): boolean {
 export function logout(): void {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     // 페이지 새로고침으로 상태 초기화
     window.location.href = '/login';
   }
@@ -96,7 +99,10 @@ export function validateToken(): boolean {
   if (typeof window === 'undefined') return false;
   
   const token = localStorage.getItem('token');
-  if (!token) return false;
+  if (!token) {
+    console.log('토큰이 없습니다.');
+    return false;
+  }
 
   if (isTokenExpired(token)) {
     console.log('토큰이 만료되었습니다. 로그아웃 처리합니다.');
@@ -104,5 +110,6 @@ export function validateToken(): boolean {
     return false;
   }
 
+  console.log('토큰이 유효합니다.');
   return true;
 } 
