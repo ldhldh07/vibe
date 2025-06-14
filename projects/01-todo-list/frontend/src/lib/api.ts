@@ -42,6 +42,22 @@ async function apiRequest<T>(
     console.log('응답 상태:', response.status); // 디버깅용
     
     if (!response.ok) {
+      // 401 Unauthorized 에러 시 자동 로그아웃
+      if (response.status === 401) {
+        console.log('인증 실패: 자동 로그아웃 처리');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
+        return {
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '인증이 필요합니다. 다시 로그인해주세요.',
+          }
+        };
+      }
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     

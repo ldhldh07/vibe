@@ -24,12 +24,14 @@ export default function Navbar() {
 
   // 로그아웃 핸들러
   const handleLogout = () => {
-    // 토큰 및 유저 정보 삭제
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    // 메인 페이지로 이동
-    window.location.href = '/';
+    if (confirm('로그아웃 하시겠습니까?')) {
+      // 토큰 및 유저 정보 삭제
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      // 로그인 페이지로 즉시 이동
+      window.location.href = '/login';
+    }
   };
 
   return (

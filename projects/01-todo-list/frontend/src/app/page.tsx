@@ -520,17 +520,45 @@ export default function TodoPage() {
   const completedCount = todos.filter(todo => todo.isCompleted).length;
   const pendingCount = totalCount - completedCount;
 
-  // 현재 사용자 정보 가져오기
-  const currentUser = getCurrentUser();
+  const [currentUser, setCurrentUser] = useState<{ userId: string; username: string; email: string } | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    
+    const checkAuth = async () => {
+      // 토큰 유효성 검사
+      if (!validateToken()) {
+        console.log('토큰이 유효하지 않습니다. 로그인 페이지로 이동합니다.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      
+      const user = getCurrentUser();
+      if (!user) {
+        console.log('사용자 정보를 가져올 수 없습니다. 로그인 페이지로 이동합니다.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      
+      setCurrentUser(user);
+    };
+    
+    checkAuth();
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 사용자 정보 헤더 */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-3">
+      {/* 상단 사용자 정보 바 */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <h1 className="text-xl font-semibold text-gray-900">협업 Todo 시스템</h1>
-            {currentUser && (
+            {isClient && currentUser && (
               <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
                 👤 {currentUser.username} (ID: {currentUser.userId})
               </span>
@@ -540,7 +568,8 @@ export default function TodoPage() {
             onClick={() => {
               if (confirm('로그아웃 하시겠습니까?')) {
                 localStorage.removeItem('token');
-                router.replace('/login');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
               }
             }}
             className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"

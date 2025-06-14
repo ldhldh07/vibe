@@ -38,6 +38,12 @@ export default function ProjectSelector({ selectedProject, onProjectSelect, onPr
       if (result.data.length > 0 && !selectedProject) {
         onProjectSelect(result.data[0]);
       }
+    } else {
+      console.error('프로젝트 로딩 실패:', result.error);
+      // 401 에러는 이미 api.ts에서 처리되므로 여기서는 다른 에러만 처리
+      if (result.error?.code !== 'UNAUTHORIZED') {
+        alert(result.error?.message || '프로젝트를 불러오는데 실패했습니다.');
+      }
     }
     setLoading(false);
   };
