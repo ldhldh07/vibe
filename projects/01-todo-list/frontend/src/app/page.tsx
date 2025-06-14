@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from "next/navigation";
-import { Todo, Priority, CreateTodoRequest, UpdateTodoRequest } from '@/types/api';
-import { getTodos, createTodo, updateTodo, deleteTodo } from '@/lib/api';
+import { Todo, Priority, CreateTodoRequest, UpdateTodoRequest, Project, ProjectMember, InviteMemberRequest } from '@/types/api';
+import { getTodosByProject, createTodo, updateTodo, deleteTodo, getProjectMembers, inviteMember, removeMember } from '@/lib/api';
+import ProjectSelector from './components/ProjectSelector';
 
 // 필터 타입 정의
 type FilterType = 'ALL' | 'COMPLETED' | 'PENDING';
@@ -52,10 +53,27 @@ export default function TodoPage() {
   }, [router]);
 
   // 상태 관리
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'ALL'>('ALL');
+  const [assigneeFilter, setAssigneeFilter] = useState<number | 'ALL'>('ALL');
+  
+  // 프로젝트 설정 모달 상태
+  const [showProjectSettings, setShowProjectSettings] = useState(false);
+  
+  // 멤버 초대 폼 상태
+  const [inviteForm, setInviteForm] = useState<{
+    userId: string;
+    role: 'VIEWER' | 'MEMBER' | 'ADMIN';
+  }>({
+    userId: '',
+    role: 'MEMBER'
+  });
+  const [isInviting, setIsInviting] = useState(false);
 
   // 음악 플레이어 상태 추가
   const [isPlaying, setIsPlaying] = useState(false);
@@ -148,22 +166,100 @@ export default function TodoPage() {
     title: '',
     description: '',
     priority: 'MEDIUM',
+    projectId: 0, // 프로젝트 선택 시 업데이트됨
     dueDate: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Todo 데이터 로딩
   useEffect(() => {
-    loadTodos();
-  }, []);
+    if (selectedProject) {
+      loadTodos();
+      loadProjectMembers();
+    }
+  }, [selectedProject]);
 
   const loadTodos = async () => {
+    if (!selectedProject) return;
+    
     setLoading(true);
-    const result = await getTodos();
+    const result = await getTodosByProject(selectedProject.id);
     if (result.success) {
       setTodos(result.data);
     }
     setLoading(false);
+  };
+
+  // 프로젝트 멤버 로딩
+  const loadProjectMembers = async () => {
+    if (!selectedProject) return;
+    
+    setMembersLoading(true);
+    const result = await getProjectMembers(selectedProject.id);
+    if (result.success) {
+      setProjectMembers(result.data);
+    }
+    setMembersLoading(false);
+  };
+
+  // 프로젝트 선택 핸들러
+  const handleProjectSelect = (project: Project) => {
+    setSelectedProject(project);
+    // 폼 데이터의 projectId도 업데이트
+    setFormData(prev => ({
+      ...prev,
+      projectId: project.id
+    }));
+  };
+
+  // 멤버 초대 핸들러
+  const handleInviteMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedProject || !inviteForm.userId.trim()) {
+      alert('사용자 ID를 입력해주세요.');
+      return;
+    }
+
+    setIsInviting(true);
+    
+    const inviteData: InviteMemberRequest = {
+      userId: Number(inviteForm.userId),
+      role: inviteForm.role
+    };
+
+    const result = await inviteMember(selectedProject.id, inviteData);
+    
+    if (result.success) {
+      // 멤버 목록 새로고침
+      await loadProjectMembers();
+      // 폼 초기화
+      setInviteForm({ userId: '', role: 'MEMBER' });
+      alert('멤버를 성공적으로 초대했습니다.');
+    } else {
+      alert(result.error?.message || '멤버 초대에 실패했습니다.');
+    }
+    
+    setIsInviting(false);
+  };
+
+  // 멤버 제거 핸들러
+  const handleRemoveMember = async (userId: number, userName: string) => {
+    if (!selectedProject) return;
+    
+    if (!confirm(`사용자 ${userName}을(를) 프로젝트에서 제거하시겠습니까?`)) {
+      return;
+    }
+
+    const result = await removeMember(selectedProject.id, userId);
+    
+    if (result.success) {
+      // 멤버 목록 새로고침
+      await loadProjectMembers();
+      alert('멤버를 성공적으로 제거했습니다.');
+    } else {
+      alert(result.error?.message || '멤버 제거에 실패했습니다.');
+    }
   };
 
   // 새 Todo 생성
@@ -183,6 +279,7 @@ export default function TodoPage() {
       title: formData.title.trim(),
       ...(formData.description?.trim() && { description: formData.description.trim() }),
       priority: formData.priority,
+      projectId: selectedProject!.id, // 선택된 프로젝트 ID 사용
       // 날짜를 ISO 8601 형식으로 변환 (백엔드에서 Instant로 파싱 가능)
       ...(formData.dueDate && { 
         dueDate: new Date(formData.dueDate + 'T00:00:00.000Z').toISOString() 
@@ -199,6 +296,7 @@ export default function TodoPage() {
         title: '',
         description: '',
         priority: 'MEDIUM',
+        projectId: selectedProject!.id,
         dueDate: ''
       });
       
@@ -243,7 +341,7 @@ export default function TodoPage() {
   };
 
   // 입력 필드 변경 핸들러
-  const handleInputChange = (field: keyof CreateTodoRequest, value: string) => {
+  const handleInputChange = (field: keyof CreateTodoRequest, value: string | number | undefined) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -287,6 +385,17 @@ export default function TodoPage() {
     // 우선순위 필터
     if (priorityFilter !== 'ALL' && todo.priority !== priorityFilter) return false;
     
+    // 할당자 필터
+    if (assigneeFilter !== 'ALL') {
+      if (assigneeFilter === 0) {
+        // "나에게 할당된 것"을 선택한 경우 - 현재 사용자 ID로 필터링 (임시로 createdBy 사용)
+        if (todo.assignedTo !== todo.createdBy) return false;
+      } else {
+        // 특정 사용자에게 할당된 것
+        if (todo.assignedTo !== assigneeFilter) return false;
+      }
+    }
+    
     return true;
   });
 
@@ -297,6 +406,13 @@ export default function TodoPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* 프로젝트 선택 헤더 */}
+      <ProjectSelector 
+        selectedProject={selectedProject}
+        onProjectSelect={handleProjectSelect}
+        onProjectSettings={() => setShowProjectSettings(true)}
+      />
+      
       {/* 헤더 영역 */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-6">
@@ -438,14 +554,43 @@ export default function TodoPage() {
                 <option value="LOW">🟢 낮음</option>
               </select>
             </div>
+
+            {/* 할당자 필터 */}
+            <div className="flex gap-2">
+              <select
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="ALL">모든 할당자</option>
+                <option value="0">👤 나에게 할당된 것</option>
+                {projectMembers.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    👤 사용자 ID: {member.userId}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </header>
 
       {/* 메인 컨텐츠 영역 */}
       <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Todo 입력 폼 섹션 */}
-        <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+        {!selectedProject ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📁</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              프로젝트를 선택해주세요
+            </h3>
+            <p className="text-gray-500">
+              위에서 프로젝트를 선택하거나 새로 만들어보세요.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Todo 입력 폼 섹션 */}
+            <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
             ➕ 새 Todo 추가
           </h2>
@@ -482,6 +627,30 @@ export default function TodoPage() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
                 disabled={isSubmitting}
               />
+            </div>
+
+            {/* 할당자 선택 */}
+            <div>
+              <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 mb-2">
+                할당자 (선택사항)
+              </label>
+              <select
+                id="assignedTo"
+                value={formData.assignedTo || ''}
+                onChange={(e) => handleInputChange('assignedTo', e.target.value ? Number(e.target.value) : undefined)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isSubmitting || membersLoading}
+              >
+                <option value="">본인에게 할당 (기본값)</option>
+                {projectMembers.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    👤 사용자 ID: {member.userId} ({member.role})
+                  </option>
+                ))}
+              </select>
+              {membersLoading && (
+                <p className="text-sm text-gray-500 mt-1">멤버 목록을 불러오는 중...</p>
+              )}
             </div>
 
             {/* 우선순위와 마감일 */}
@@ -604,13 +773,37 @@ export default function TodoPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h3 className={`font-medium ${
-                              todo.isCompleted 
-                                ? 'line-through text-gray-500' 
-                                : 'text-gray-900'
-                            }`}>
-                              {todo.title}
-                            </h3>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className={`font-medium ${
+                                todo.isCompleted 
+                                  ? 'line-through text-gray-500' 
+                                  : 'text-gray-900'
+                              }`}>
+                                {todo.title}
+                              </h3>
+                              
+                              {/* 할당자 아바타 */}
+                              <div className="flex items-center gap-1">
+                                {todo.assignedTo ? (
+                                  <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
+                                    <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                      {todo.assignedTo.toString().slice(-1)}
+                                    </div>
+                                    <span>사용자 {todo.assignedTo}</span>
+                                    {todo.assignedTo === todo.createdBy && (
+                                      <span className="text-blue-600">👤</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">
+                                    <div className="w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center text-white text-xs">
+                                      ?
+                                    </div>
+                                    <span>미할당</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                             
                             {todo.description && (
                               <p className={`mt-1 text-sm ${
@@ -626,6 +819,19 @@ export default function TodoPage() {
                             <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
                               <span className="flex items-center gap-1">
                                 {priorityStyle.icon} {todo.priority || 'MEDIUM'}
+                              </span>
+                              
+                              {/* 할당자 정보 */}
+                              <span className="flex items-center gap-1">
+                                👤 할당: {todo.assignedTo ? `사용자 ${todo.assignedTo}` : '미할당'}
+                                {todo.assignedTo === todo.createdBy && (
+                                  <span className="text-blue-500">(본인)</span>
+                                )}
+                              </span>
+                              
+                              {/* 생성자 정보 */}
+                              <span className="flex items-center gap-1">
+                                ✏️ 생성: 사용자 {todo.createdBy}
                               </span>
                               
                               {todo.dueDate && (
@@ -662,10 +868,181 @@ export default function TodoPage() {
             </div>
           )}
         </section>
+          </>
+        )}
       </main>
 
       {/* 숨겨진 YouTube 플레이어 */}
       <div id="youtube-player" style={{ display: 'none' }}></div>
+
+      {/* 프로젝트 설정 모달 */}
+      {showProjectSettings && selectedProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                프로젝트 설정: {selectedProject.name}
+              </h2>
+              <button
+                onClick={() => setShowProjectSettings(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* 모달 내용 */}
+            <div className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* 프로젝트 정보 섹션 */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">프로젝트 정보</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        프로젝트 이름
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedProject.name}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        readOnly
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        설명
+                      </label>
+                      <textarea
+                        value={selectedProject.description || '설명이 없습니다.'}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        rows={3}
+                        readOnly
+                      />
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-gray-700">공개 설정:</span>
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          selectedProject.isPrivate 
+                            ? 'bg-red-100 text-red-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {selectedProject.isPrivate ? '🔒 비공개' : '🌐 공개'}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-gray-700">멤버 수:</span>
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                          👥 {selectedProject.memberCount}명
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 멤버 관리 섹션 */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">멤버 관리</h3>
+                  <div className="space-y-4">
+                    {/* 멤버 목록 */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">현재 멤버</h4>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {projectMembers.map((member) => (
+                          <div key={member.userId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                                {member.userId.toString().slice(-1)}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">사용자 {member.userId}</div>
+                                <div className="text-sm text-gray-500">
+                                  {new Date(member.joinedAt).toLocaleDateString()} 가입
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                member.role === 'OWNER' ? 'bg-purple-100 text-purple-800' :
+                                member.role === 'ADMIN' ? 'bg-red-100 text-red-800' :
+                                member.role === 'MEMBER' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {member.role === 'OWNER' ? '👑 소유자' :
+                                 member.role === 'ADMIN' ? '⚡ 관리자' :
+                                 member.role === 'MEMBER' ? '👤 멤버' :
+                                 '👁️ 뷰어'}
+                              </span>
+                              {member.role !== 'OWNER' && (
+                                <button 
+                                  onClick={() => handleRemoveMember(member.userId, `사용자 ${member.userId}`)}
+                                  className="text-red-500 hover:text-red-700 text-sm"
+                                >
+                                  제거
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                                         {/* 멤버 초대 */}
+                     <div>
+                       <h4 className="text-sm font-medium text-gray-700 mb-2">새 멤버 초대</h4>
+                       <form onSubmit={handleInviteMember} className="flex space-x-2">
+                         <input
+                           type="number"
+                           placeholder="사용자 ID 입력"
+                           value={inviteForm.userId}
+                           onChange={(e) => setInviteForm(prev => ({ ...prev, userId: e.target.value }))}
+                           className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           disabled={isInviting}
+                           required
+                         />
+                         <select 
+                           value={inviteForm.role}
+                           onChange={(e) => setInviteForm(prev => ({ ...prev, role: e.target.value as 'VIEWER' | 'MEMBER' | 'ADMIN' }))}
+                           className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           disabled={isInviting}
+                         >
+                           <option value="VIEWER">뷰어</option>
+                           <option value="MEMBER">멤버</option>
+                           <option value="ADMIN">관리자</option>
+                         </select>
+                         <button 
+                           type="submit"
+                           disabled={isInviting || !inviteForm.userId.trim()}
+                           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                         >
+                           {isInviting ? '초대 중...' : '초대'}
+                         </button>
+                       </form>
+                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 모달 푸터 */}
+            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowProjectSettings(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              >
+                닫기
+              </button>
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                변경사항 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

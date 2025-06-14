@@ -3,7 +3,13 @@ import type {
   CreateTodoRequest, 
   UpdateTodoRequest, 
   ApiResult, 
-  TodoFilters 
+  TodoFilters,
+  Project,
+  CreateProjectRequest,
+  UpdateProjectRequest,
+  ProjectMember,
+  InviteMemberRequest,
+  UpdateMemberRoleRequest
 } from '@/types/api';
 
 // API 기본 URL 설정
@@ -78,7 +84,7 @@ async function apiRequest<T>(
 }
 
 /**
- * Todo 목록 조회
+ * Todo 목록 조회 (사용자가 접근 가능한 모든 프로젝트)
  */
 export async function getTodos(filters?: TodoFilters): Promise<ApiResult<Todo[]>> {
   const params = new URLSearchParams();
@@ -88,6 +94,15 @@ export async function getTodos(filters?: TodoFilters): Promise<ApiResult<Todo[]>
   }
   if (filters?.priority) {
     params.append('priority', filters.priority);
+  }
+  if (filters?.projectId) {
+    params.append('projectId', filters.projectId.toString());
+  }
+  if (filters?.assignedTo) {
+    params.append('assignedTo', filters.assignedTo.toString());
+  }
+  if (filters?.createdBy) {
+    params.append('createdBy', filters.createdBy.toString());
   }
   if (filters?.sort) {
     params.append('sort', filters.sort);
@@ -141,6 +156,145 @@ export async function deleteTodo(id: number): Promise<ApiResult<string>> {
   return apiRequest<string>(`/api/todos/${id}`, {
     method: 'DELETE',
   });
+}
+
+// ==================== 프로젝트 관련 API ====================
+
+/**
+ * 프로젝트 목록 조회
+ */
+export async function getProjects(): Promise<ApiResult<Project[]>> {
+  return apiRequest<Project[]>('/api/projects');
+}
+
+/**
+ * 특정 프로젝트 조회
+ */
+export async function getProject(id: number): Promise<ApiResult<Project>> {
+  return apiRequest<Project>(`/api/projects/${id}`);
+}
+
+/**
+ * 프로젝트 생성
+ */
+export async function createProject(project: CreateProjectRequest): Promise<ApiResult<Project>> {
+  return apiRequest<Project>('/api/projects', {
+    method: 'POST',
+    body: JSON.stringify(project),
+  });
+}
+
+/**
+ * 프로젝트 수정
+ */
+export async function updateProject(
+  id: number, 
+  updates: UpdateProjectRequest
+): Promise<ApiResult<Project>> {
+  return apiRequest<Project>(`/api/projects/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+
+/**
+ * 프로젝트 삭제
+ */
+export async function deleteProject(id: number): Promise<ApiResult<string>> {
+  return apiRequest<string>(`/api/projects/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * 프로젝트 멤버 목록 조회
+ */
+export async function getProjectMembers(projectId: number): Promise<ApiResult<ProjectMember[]>> {
+  return apiRequest<ProjectMember[]>(`/api/projects/${projectId}/members`);
+}
+
+/**
+ * 프로젝트에 멤버 초대
+ */
+export async function inviteMember(
+  projectId: number, 
+  request: InviteMemberRequest
+): Promise<ApiResult<ProjectMember>> {
+  return apiRequest<ProjectMember>(`/api/projects/${projectId}/members`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * 멤버 역할 변경
+ */
+export async function updateMemberRole(
+  projectId: number,
+  userId: number,
+  request: UpdateMemberRoleRequest
+): Promise<ApiResult<ProjectMember>> {
+  return apiRequest<ProjectMember>(`/api/projects/${projectId}/members/${userId}/role`, {
+    method: 'PUT',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * 프로젝트에서 멤버 제거
+ */
+export async function removeMember(
+  projectId: number,
+  userId: number
+): Promise<ApiResult<string>> {
+  return apiRequest<string>(`/api/projects/${projectId}/members/${userId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * 프로젝트 탈퇴
+ */
+export async function leaveProject(projectId: number): Promise<ApiResult<string>> {
+  return apiRequest<string>(`/api/projects/${projectId}/leave`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * 특정 프로젝트의 Todo 목록 조회
+ */
+export async function getTodosByProject(
+  projectId: number, 
+  filters?: TodoFilters
+): Promise<ApiResult<Todo[]>> {
+  const params = new URLSearchParams();
+  
+  if (filters?.isCompleted !== undefined) {
+    params.append('completed', filters.isCompleted.toString());
+  }
+  if (filters?.priority) {
+    params.append('priority', filters.priority);
+  }
+  if (filters?.assignedTo) {
+    params.append('assignedTo', filters.assignedTo.toString());
+  }
+  if (filters?.createdBy) {
+    params.append('createdBy', filters.createdBy.toString());
+  }
+  if (filters?.sort) {
+    params.append('sort', filters.sort);
+  }
+  if (filters?.order) {
+    params.append('order', filters.order);
+  }
+
+  const query = params.toString();
+  const endpoint = query 
+    ? `/api/todos/project/${projectId}?${query}` 
+    : `/api/todos/project/${projectId}`;
+  
+  return apiRequest<Todo[]>(endpoint);
 }
 
 /**

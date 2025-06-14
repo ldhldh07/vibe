@@ -14,6 +14,9 @@ export interface Todo {
   description?: string;
   isCompleted?: boolean;
   priority?: Priority;
+  projectId: number;
+  createdBy: number;
+  assignedTo?: number;
   createdAt: string;
   updatedAt: string;
   dueDate?: string;
@@ -26,6 +29,8 @@ export interface CreateTodoRequest {
   title: string;
   description?: string;
   priority?: Priority;
+  projectId: number;
+  assignedTo?: number;
   dueDate?: string;
 }
 
@@ -37,6 +42,7 @@ export interface UpdateTodoRequest {
   description?: string;
   isCompleted?: boolean;
   priority?: Priority;
+  assignedTo?: number;
   dueDate?: string;
 }
 
@@ -79,4 +85,70 @@ export interface TodoFilters {
   priority?: Priority;
   sort?: 'CREATED_AT' | 'UPDATED_AT' | 'TITLE' | 'PRIORITY';
   order?: 'ASC' | 'DESC';
+  projectId?: number;
+  assignedTo?: number;
+  createdBy?: number;
+}
+
+/**
+ * 프로젝트 역할 열거형
+ */
+export type ProjectRole = 'VIEWER' | 'MEMBER' | 'ADMIN' | 'OWNER';
+
+/**
+ * 프로젝트 엔티티 타입
+ */
+export interface Project {
+  id: number;
+  name: string;
+  description?: string;
+  ownerId: number;
+  isPrivate: boolean;
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 프로젝트 멤버 엔티티 타입
+ */
+export interface ProjectMember {
+  id: number;
+  projectId: number;
+  userId: number;
+  role: ProjectRole;
+  joinedAt: string;
+}
+
+/**
+ * 프로젝트 생성 요청 타입
+ */
+export interface CreateProjectRequest {
+  name: string;
+  description?: string;
+  isPrivate?: boolean;
+}
+
+/**
+ * 프로젝트 수정 요청 타입
+ */
+export interface UpdateProjectRequest {
+  name?: string;
+  description?: string;
+  isPrivate?: boolean;
+}
+
+/**
+ * 멤버 초대 요청 타입
+ */
+export interface InviteMemberRequest {
+  userId: number;
+  role?: ProjectRole;
+}
+
+/**
+ * 멤버 역할 변경 요청 타입
+ */
+export interface UpdateMemberRoleRequest {
+  role: ProjectRole;
 } 
