@@ -62,8 +62,8 @@ class InMemoryStorage {
         description: String?, 
         priority: Priority, 
         projectId: Long,
-        createdBy: Long,
-        assignedTo: Long? = null,
+        createdBy: String,
+        assignedTo: String? = null,
         dueDate: Instant?
     ): Todo {
         val now = Clock.System.now()
@@ -112,7 +112,7 @@ class InMemoryStorage {
         description: String? = null, 
         isCompleted: Boolean? = null, 
         priority: Priority? = null, 
-        assignedTo: Long? = null,
+        assignedTo: String? = null,
         dueDate: Instant? = null
     ): Todo? {
         val existingTodo = todos[id] ?: return null
@@ -196,7 +196,7 @@ class InMemoryStorage {
      * @param isPrivate 비공개 프로젝트 여부
      * @return 생성된 Project 객체
      */
-    fun saveProject(name: String, description: String?, ownerId: Long, isPrivate: Boolean): Project {
+    fun saveProject(name: String, description: String?, ownerId: String, isPrivate: Boolean): Project {
         val now = Clock.System.now()
         val project = Project(
             id = nextProjectId,
@@ -240,7 +240,7 @@ class InMemoryStorage {
      * @param userId 사용자 ID
      * @return 사용자가 멤버인 프로젝트 목록
      */
-    fun findProjectsByUserId(userId: Long): List<Project> {
+    fun findProjectsByUserId(userId: String): List<Project> {
         val userProjectIds = projectMembers.values
             .filter { it.userId == userId }
             .map { it.projectId }
@@ -302,7 +302,7 @@ class InMemoryStorage {
      * @param role 멤버 역할
      * @return 생성된 ProjectMember 객체
      */
-    fun addProjectMember(projectId: Long, userId: Long, role: ProjectRole): ProjectMember {
+    fun addProjectMember(projectId: Long, userId: String, role: ProjectRole): ProjectMember {
         val now = Clock.System.now()
         val member = ProjectMember(
             id = nextMemberId,
@@ -341,7 +341,7 @@ class InMemoryStorage {
      * @param userId 사용자 ID
      * @return ProjectMember 객체, 없으면 null
      */
-    fun findProjectMember(projectId: Long, userId: Long): ProjectMember? {
+    fun findProjectMember(projectId: Long, userId: String): ProjectMember? {
         return projectMembers.values.find { 
             it.projectId == projectId && it.userId == userId 
         }
@@ -354,7 +354,7 @@ class InMemoryStorage {
      * @param newRole 새로운 역할
      * @return 업데이트된 ProjectMember 객체, 없으면 null
      */
-    fun updateProjectMemberRole(projectId: Long, userId: Long, newRole: ProjectRole): ProjectMember? {
+    fun updateProjectMemberRole(projectId: Long, userId: String, newRole: ProjectRole): ProjectMember? {
         val member = findProjectMember(projectId, userId) ?: return null
         
         val updatedMember = member.copy(role = newRole)
@@ -369,7 +369,7 @@ class InMemoryStorage {
      * @param userId 사용자 ID
      * @return 제거 성공하면 true, 해당 멤버가 없으면 false
      */
-    fun removeProjectMember(projectId: Long, userId: Long): Boolean {
+    fun removeProjectMember(projectId: Long, userId: String): Boolean {
         val member = findProjectMember(projectId, userId) ?: return false
         
         projectMembers.remove(member.id)

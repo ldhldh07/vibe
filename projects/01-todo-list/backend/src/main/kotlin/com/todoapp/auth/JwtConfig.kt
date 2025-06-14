@@ -11,6 +11,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import java.util.*
 import kotlin.time.Duration.Companion.hours
+import io.ktor.server.application.ApplicationCall
 
 /**
  * JWT 토큰 관리를 위한 설정 클래스
@@ -231,4 +232,21 @@ object JwtConfig {
             "secretLength" to SECRET.length
         )
     }
+}
+
+/**
+ * ApplicationCall에서 현재 사용자 ID를 추출하는 확장 함수
+ */
+fun ApplicationCall.getUserId(): String {
+    val authHeader = request.headers["Authorization"]
+    val token = JwtConfig.extractTokenFromHeader(authHeader)
+        ?: throw IllegalArgumentException("Authorization 헤더가 없거나 잘못된 형식입니다")
+    
+    val tokenInfo = JwtConfig.verifyToken(token).getOrThrow()
+    
+    if (JwtConfig.isTokenExpired(tokenInfo)) {
+        throw IllegalArgumentException("토큰이 만료되었습니다")
+    }
+    
+    return tokenInfo.userId
 } 

@@ -41,6 +41,33 @@ enum class ProjectRole(val displayName: String, val level: Int) {
 }
 
 /**
+ * ProjectRole 확장 함수들
+ */
+fun ProjectRole.canManageProject(): Boolean {
+    return this.level >= ProjectRole.ADMIN.level
+}
+
+fun ProjectRole.canInviteMembers(): Boolean {
+    return this.level >= ProjectRole.ADMIN.level
+}
+
+fun ProjectRole.canManageMembers(): Boolean {
+    return this.level >= ProjectRole.ADMIN.level
+}
+
+fun ProjectRole.canCreateTodo(): Boolean {
+    return this.level >= ProjectRole.MEMBER.level
+}
+
+fun ProjectRole.canEditTodo(): Boolean {
+    return this.level >= ProjectRole.MEMBER.level
+}
+
+fun ProjectRole.canDeleteTodo(): Boolean {
+    return this.level >= ProjectRole.ADMIN.level
+}
+
+/**
  * 프로젝트 메인 엔티티
  * Todo들을 그룹화하는 워크스페이스 역할
  */
@@ -49,7 +76,7 @@ data class Project(
     val id: Long,                           // 고유 식별자
     val name: String,                       // 프로젝트 이름 (1-100자)
     val description: String? = null,        // 프로젝트 설명 (선택사항, 최대 500자)
-    val ownerId: Long,                      // 프로젝트 소유자 ID
+    val ownerId: String,                    // 프로젝트 소유자 ID
     val isPrivate: Boolean = false,         // 비공개 프로젝트 여부
     val createdAt: Instant,                 // 생성 시간
     val updatedAt: Instant,                 // 수정 시간
@@ -80,10 +107,10 @@ data class Project(
 data class ProjectMember(
     val id: Long,                           // 고유 식별자
     val projectId: Long,                    // 프로젝트 ID
-    val userId: Long,                       // 사용자 ID
+    val userId: String,                     // 사용자 ID
     val role: ProjectRole,                  // 멤버 역할
     val joinedAt: Instant,                  // 참여 시간
-    val invitedBy: Long? = null,           // 초대한 사용자 ID (선택사항)
+    val invitedBy: String? = null,          // 초대한 사용자 ID (선택사항)
     val isActive: Boolean = true            // 활성 상태 (탈퇴 시 false)
 ) {
     /**
@@ -169,15 +196,14 @@ data class UpdateProjectRequest(
  */
 @Serializable
 data class InviteMemberRequest(
-    val email: String,                      // 초대할 사용자 이메일
+    val userId: String,                     // 초대할 사용자 ID
     val role: ProjectRole = ProjectRole.MEMBER // 부여할 역할 (기본값: 멤버)
 ) {
     /**
      * 요청 데이터 유효성 검증
      */
     fun validate() {
-        require(email.isNotBlank()) { "이메일은 필수입니다" }
-        require(email.contains("@") && email.contains(".")) { "올바른 이메일 형식이 아닙니다" }
+        require(userId.isNotBlank()) { "사용자 ID는 필수입니다" }
         require(role != ProjectRole.OWNER) { "소유자 역할은 직접 부여할 수 없습니다" }
     }
 }

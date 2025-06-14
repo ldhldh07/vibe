@@ -22,7 +22,7 @@ class TodoService(
      * @return 생성된 Todo 객체
      * @throws IllegalArgumentException 유효하지 않은 요청 데이터 또는 권한 없음
      */
-    fun createTodo(request: CreateTodoRequest, userId: Long): Todo {
+    fun createTodo(request: CreateTodoRequest, userId: String): Todo {
         // 요청 데이터 유효성 검증
         request.validate()
         
@@ -66,7 +66,7 @@ class TodoService(
      * @return 해당 Todo 객체
      * @throws IllegalArgumentException Todo가 존재하지 않거나 권한 없음
      */
-    fun getTodoById(id: Long, userId: Long): Todo {
+    fun getTodoById(id: Long, userId: String): Todo {
         require(id > 0) { "ID는 양수여야 합니다" }
         
         val todo = storage.findTodoById(id)
@@ -87,7 +87,7 @@ class TodoService(
      * @return 업데이트된 Todo 객체
      * @throws IllegalArgumentException Todo가 존재하지 않거나 권한 없음
      */
-    fun updateTodo(id: Long, request: UpdateTodoRequest, userId: Long): Todo {
+    fun updateTodo(id: Long, request: UpdateTodoRequest, userId: String): Todo {
         require(id > 0) { "ID는 양수여야 합니다" }
         require(!request.isEmpty()) { "업데이트할 데이터가 없습니다" }
         
@@ -131,7 +131,7 @@ class TodoService(
      * @param userId 요청한 사용자 ID
      * @return 조건에 맞는 Todo 목록
      */
-    fun getAllTodos(filters: TodoFilters? = null, userId: Long): List<Todo> {
+    fun getAllTodos(filters: TodoFilters? = null, userId: String): List<Todo> {
         val actualFilters = filters ?: TodoFilters()
         
         // 사용자가 접근 가능한 프로젝트 ID 목록 조회
@@ -150,7 +150,7 @@ class TodoService(
      * @param userId 요청한 사용자 ID
      * @return 조건에 맞는 Todo 목록
      */
-    fun getTodosByProject(projectId: Long, filters: TodoFilters? = null, userId: Long): List<Todo> {
+    fun getTodosByProject(projectId: Long, filters: TodoFilters? = null, userId: String): List<Todo> {
         // 프로젝트 접근 권한 확인
         val membership = storage.findProjectMember(projectId, userId)
             ?: throw IllegalArgumentException("프로젝트에 대한 접근 권한이 없습니다")
@@ -165,7 +165,7 @@ class TodoService(
      * @param userId 요청한 사용자 ID
      * @throws IllegalArgumentException Todo가 존재하지 않거나 권한 없음
      */
-    fun deleteTodo(id: Long, userId: Long) {
+    fun deleteTodo(id: Long, userId: String) {
         require(id > 0) { "ID는 양수여야 합니다" }
         
         // 기존 Todo 조회 및 권한 확인

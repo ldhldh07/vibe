@@ -25,7 +25,7 @@ class ProjectService(
      * @return 생성된 Project 객체
      * @throws IllegalArgumentException 유효하지 않은 요청 데이터
      */
-    fun createProject(request: CreateProjectRequest, ownerId: Long): Project {
+    fun createProject(request: CreateProjectRequest, ownerId: String): Project {
         // 요청 데이터 유효성 검증
         request.validate()
         
@@ -43,7 +43,7 @@ class ProjectService(
      * @param userId 사용자 ID
      * @return 사용자가 멤버인 프로젝트 목록
      */
-    fun getUserProjects(userId: Long): List<Project> {
+    fun getUserProjects(userId: String): List<Project> {
         return storage.findProjectsByUserId(userId)
     }
     
@@ -54,7 +54,7 @@ class ProjectService(
      * @return 해당 Project 객체
      * @throws IllegalArgumentException 프로젝트가 존재하지 않거나 권한 없음
      */
-    fun getProjectById(projectId: Long, userId: Long): Project {
+    fun getProjectById(projectId: Long, userId: String): Project {
         require(projectId > 0) { "프로젝트 ID는 양수여야 합니다" }
         
         val project = storage.findProjectById(projectId)
@@ -75,7 +75,7 @@ class ProjectService(
      * @return 업데이트된 Project 객체
      * @throws IllegalArgumentException 프로젝트가 존재하지 않거나 권한 없음
      */
-    fun updateProject(projectId: Long, request: UpdateProjectRequest, userId: Long): Project {
+    fun updateProject(projectId: Long, request: UpdateProjectRequest, userId: String): Project {
         require(projectId > 0) { "프로젝트 ID는 양수여야 합니다" }
         require(!request.isEmpty()) { "업데이트할 데이터가 없습니다" }
         
@@ -106,7 +106,7 @@ class ProjectService(
      * @param userId 요청한 사용자 ID
      * @throws IllegalArgumentException 프로젝트가 존재하지 않거나 권한 없음
      */
-    fun deleteProject(projectId: Long, userId: Long) {
+    fun deleteProject(projectId: Long, userId: String) {
         require(projectId > 0) { "프로젝트 ID는 양수여야 합니다" }
         
         // 프로젝트 존재 및 권한 확인
@@ -133,7 +133,7 @@ class ProjectService(
      * @return 프로젝트 멤버 목록
      * @throws IllegalArgumentException 프로젝트가 존재하지 않거나 권한 없음
      */
-    fun getProjectMembers(projectId: Long, userId: Long): List<ProjectMember> {
+    fun getProjectMembers(projectId: Long, userId: String): List<ProjectMember> {
         // 프로젝트 접근 권한 확인
         getProjectById(projectId, userId)
         
@@ -148,7 +148,7 @@ class ProjectService(
      * @return 생성된 ProjectMember 객체
      * @throws IllegalArgumentException 권한 없음 또는 이미 멤버인 경우
      */
-    fun inviteMember(projectId: Long, request: InviteMemberRequest, inviterId: Long): ProjectMember {
+    fun inviteMember(projectId: Long, request: InviteMemberRequest, inviterId: String): ProjectMember {
         // 요청 데이터 유효성 검증
         request.validate()
         
@@ -186,7 +186,7 @@ class ProjectService(
      * @return 업데이트된 ProjectMember 객체
      * @throws IllegalArgumentException 권한 없음 또는 유효하지 않은 역할 변경
      */
-    fun updateMemberRole(projectId: Long, targetUserId: Long, newRole: ProjectRole, requesterId: Long): ProjectMember {
+    fun updateMemberRole(projectId: Long, targetUserId: String, newRole: ProjectRole, requesterId: String): ProjectMember {
         // 프로젝트 존재 및 권한 확인
         val project = getProjectById(projectId, requesterId)
         val requesterMembership = storage.findProjectMember(projectId, requesterId)!!
@@ -224,7 +224,7 @@ class ProjectService(
      * @param requesterId 요청한 사용자 ID
      * @throws IllegalArgumentException 권한 없음 또는 소유자 제거 시도
      */
-    fun removeMember(projectId: Long, targetUserId: Long, requesterId: Long) {
+    fun removeMember(projectId: Long, targetUserId: String, requesterId: String) {
         // 프로젝트 존재 및 권한 확인
         val project = getProjectById(projectId, requesterId)
         val requesterMembership = storage.findProjectMember(projectId, requesterId)!!

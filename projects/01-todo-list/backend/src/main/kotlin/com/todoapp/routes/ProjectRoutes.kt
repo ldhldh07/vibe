@@ -134,7 +134,7 @@ fun Route.projectRoutes(projectService: ProjectService = ProjectService()) {
                 val projectId = call.parameters["id"]?.toLongOrNull()
                     ?: return@put call.respond(HttpStatusCode.BadRequest, ApiErrorResponse.badRequest("유효하지 않은 프로젝트 ID입니다"))
                 
-                val targetUserId = call.parameters["userId"]?.toLongOrNull()
+                val targetUserId = call.parameters["userId"]
                     ?: return@put call.respond(HttpStatusCode.BadRequest, ApiErrorResponse.badRequest("유효하지 않은 사용자 ID입니다"))
                 
                 val request = call.receive<UpdateMemberRoleRequest>()
@@ -154,7 +154,7 @@ fun Route.projectRoutes(projectService: ProjectService = ProjectService()) {
                 val projectId = call.parameters["id"]?.toLongOrNull()
                     ?: return@delete call.respond(HttpStatusCode.BadRequest, ApiErrorResponse.badRequest("유효하지 않은 프로젝트 ID입니다"))
                 
-                val targetUserId = call.parameters["userId"]?.toLongOrNull()
+                val targetUserId = call.parameters["userId"]
                     ?: return@delete call.respond(HttpStatusCode.BadRequest, ApiErrorResponse.badRequest("유효하지 않은 사용자 ID입니다"))
                 
                 projectService.removeMember(projectId, targetUserId, requesterId)

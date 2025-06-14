@@ -69,12 +69,12 @@ fun Route.todoRoutes(todoService: TodoService = TodoService()) {
                 val completed = call.request.queryParameters["completed"]?.toBooleanStrictOrNull()
                 val priority = call.request.queryParameters["priority"]?.let { Priority.fromString(it) }
                 val projectId = call.request.queryParameters["projectId"]?.toLongOrNull()
-                val assignedTo = call.request.queryParameters["assignedTo"]?.toLongOrNull()
-                val createdBy = call.request.queryParameters["createdBy"]?.toLongOrNull()
+                val assignedTo = call.request.queryParameters["assignedTo"]
+                val createdBy = call.request.queryParameters["createdBy"]
                 val sort = call.request.queryParameters["sort"]?.let { TodoSortField.valueOf(it.uppercase()) } ?: TodoSortField.CREATED_AT
                 val order = call.request.queryParameters["order"]?.let { SortOrder.valueOf(it.uppercase()) } ?: SortOrder.DESC
                 
-                val filters = TodoFilters(completed, priority, sort, order, projectId, assignedTo, createdBy)
+                val filters = TodoFilters(completed, priority, projectId, assignedTo, createdBy, sort, order)
                 val todos = todoService.getAllTodos(filters, userId)
                 call.respond(HttpStatusCode.OK, ApiResponse(success = true, data = todos))
             } catch (e: Exception) {
@@ -107,12 +107,12 @@ fun Route.todoRoutes(todoService: TodoService = TodoService()) {
                 
                 val completed = call.request.queryParameters["completed"]?.toBooleanStrictOrNull()
                 val priority = call.request.queryParameters["priority"]?.let { Priority.fromString(it) }
-                val assignedTo = call.request.queryParameters["assignedTo"]?.toLongOrNull()
-                val createdBy = call.request.queryParameters["createdBy"]?.toLongOrNull()
+                val assignedTo = call.request.queryParameters["assignedTo"]
+                val createdBy = call.request.queryParameters["createdBy"]
                 val sort = call.request.queryParameters["sort"]?.let { TodoSortField.valueOf(it.uppercase()) } ?: TodoSortField.CREATED_AT
                 val order = call.request.queryParameters["order"]?.let { SortOrder.valueOf(it.uppercase()) } ?: SortOrder.DESC
                 
-                val filters = TodoFilters(completed, priority, sort, order, null, assignedTo, createdBy)
+                val filters = TodoFilters(completed, priority, null, assignedTo, createdBy, sort, order)
                 val todos = todoService.getTodosByProject(projectId, filters, userId)
                 call.respond(HttpStatusCode.OK, ApiResponse(success = true, data = todos))
             } catch (e: IllegalArgumentException) {
