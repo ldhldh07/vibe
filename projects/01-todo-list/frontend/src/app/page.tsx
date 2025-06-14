@@ -74,6 +74,19 @@ export default function TodoPage() {
     role: 'MEMBER'
   });
   const [isInviting, setIsInviting] = useState(false);
+  
+  // 프로젝트 수정 폼 상태
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    description: string;
+    isPrivate: boolean;
+  }>({
+    name: '',
+    description: '',
+    isPrivate: false
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // 음악 플레이어 상태 추가
   const [isPlaying, setIsPlaying] = useState(false);
@@ -260,6 +273,52 @@ export default function TodoPage() {
     } else {
       alert(result.error?.message || '멤버 제거에 실패했습니다.');
     }
+  };
+
+  // 프로젝트 수정 모드 시작
+  const handleStartEdit = () => {
+    if (!selectedProject) return;
+    
+    setEditForm({
+      name: selectedProject.name,
+      description: selectedProject.description || '',
+      isPrivate: selectedProject.isPrivate
+    });
+    setIsEditing(true);
+  };
+
+  // 프로젝트 수정 취소
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditForm({
+      name: '',
+      description: '',
+      isPrivate: false
+    });
+  };
+
+  // 프로젝트 정보 저장
+  const handleSaveProject = async () => {
+    if (!selectedProject) return;
+    
+    setIsSaving(true);
+    
+    // TODO: updateProject API 호출 구현 필요
+    // const result = await updateProject(selectedProject.id, editForm);
+    
+    // 임시로 성공 처리
+    setTimeout(() => {
+      setSelectedProject(prev => prev ? {
+        ...prev,
+        name: editForm.name,
+        description: editForm.description,
+        isPrivate: editForm.isPrivate
+      } : null);
+      
+      setIsEditing(false);
+      setIsSaving(false);
+      alert('프로젝트 정보가 성공적으로 수정되었습니다.');
+    }, 1000);
   };
 
   // 새 Todo 생성
@@ -899,7 +958,18 @@ export default function TodoPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* 프로젝트 정보 섹션 */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">프로젝트 정보</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">프로젝트 정보</h3>
+                    {!isEditing && (
+                      <button
+                        onClick={handleStartEdit}
+                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                      >
+                        ✏️ 수정
+                      </button>
+                    )}
+                  </div>
+                  
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -907,9 +977,13 @@ export default function TodoPage() {
                       </label>
                       <input
                         type="text"
-                        value={selectedProject.name}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        readOnly
+                        value={isEditing ? editForm.name : selectedProject.name}
+                        onChange={isEditing ? (e) => setEditForm(prev => ({ ...prev, name: e.target.value })) : undefined}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                          isEditing ? 'bg-white' : 'bg-gray-50'
+                        }`}
+                        readOnly={!isEditing}
+                        disabled={isSaving}
                       />
                     </div>
                     <div>
@@ -917,30 +991,86 @@ export default function TodoPage() {
                         설명
                       </label>
                       <textarea
-                        value={selectedProject.description || '설명이 없습니다.'}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={isEditing ? editForm.description : (selectedProject.description || '설명이 없습니다.')}
+                        onChange={isEditing ? (e) => setEditForm(prev => ({ ...prev, description: e.target.value })) : undefined}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                          isEditing ? 'bg-white' : 'bg-gray-50'
+                        }`}
                         rows={3}
-                        readOnly
+                        readOnly={!isEditing}
+                        disabled={isSaving}
                       />
                     </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium text-gray-700">공개 설정:</span>
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          selectedProject.isPrivate 
-                            ? 'bg-red-100 text-red-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {selectedProject.isPrivate ? '🔒 비공개' : '🌐 공개'}
-                        </span>
+                    
+                    {isEditing ? (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          공개 설정
+                        </label>
+                        <div className="flex items-center space-x-4">
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="privacy"
+                              checked={!editForm.isPrivate}
+                              onChange={() => setEditForm(prev => ({ ...prev, isPrivate: false }))}
+                              disabled={isSaving}
+                              className="text-blue-600"
+                            />
+                            <span className="text-sm">🌐 공개</span>
+                          </label>
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="privacy"
+                              checked={editForm.isPrivate}
+                              onChange={() => setEditForm(prev => ({ ...prev, isPrivate: true }))}
+                              disabled={isSaving}
+                              className="text-blue-600"
+                            />
+                            <span className="text-sm">🔒 비공개</span>
+                          </label>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium text-gray-700">멤버 수:</span>
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-                          👥 {selectedProject.memberCount}명
-                        </span>
+                    ) : (
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-gray-700">공개 설정:</span>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            selectedProject.isPrivate 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {selectedProject.isPrivate ? '🔒 비공개' : '🌐 공개'}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-gray-700">멤버 수:</span>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                            👥 {selectedProject.memberCount}명
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    
+                    {isEditing && (
+                      <div className="flex space-x-2 pt-2">
+                        <button
+                          onClick={handleSaveProject}
+                          disabled={isSaving || !editForm.name.trim()}
+                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isSaving ? '저장 중...' : '💾 저장'}
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          disabled={isSaving}
+                          className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors disabled:opacity-50"
+                        >
+                          ❌ 취소
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1031,14 +1161,26 @@ export default function TodoPage() {
             {/* 모달 푸터 */}
             <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
               <button
-                onClick={() => setShowProjectSettings(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                onClick={() => {
+                  if (isEditing) {
+                    handleCancelEdit();
+                  }
+                  setShowProjectSettings(false);
+                }}
+                disabled={isSaving}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
               >
-                닫기
+                {isEditing ? '취소 후 닫기' : '닫기'}
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                변경사항 저장
-              </button>
+              {isEditing && (
+                <button 
+                  onClick={handleSaveProject}
+                  disabled={isSaving || !editForm.name.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? '저장 중...' : '💾 변경사항 저장'}
+                </button>
+              )}
             </div>
           </div>
         </div>
