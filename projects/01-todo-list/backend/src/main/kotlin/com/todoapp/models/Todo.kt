@@ -38,6 +38,9 @@ data class Todo(
     val description: String? = null,        // Todo 설명 (선택사항, 최대 1000자)
     val isCompleted: Boolean = false,       // 완료 상태
     val priority: Priority = Priority.MEDIUM, // 우선순위 (기본값: 보통)
+    val projectId: Long,                    // 소속 프로젝트 ID
+    val createdBy: Long,                    // 생성자 사용자 ID
+    val assignedTo: Long? = null,           // 할당된 사용자 ID (선택사항)
     val createdAt: Instant,                 // 생성 시간 (ISO 8601)
     val updatedAt: Instant,                 // 수정 시간 (ISO 8601)
     val dueDate: Instant? = null           // 마감일 (선택사항, ISO 8601)
@@ -63,6 +66,32 @@ data class Todo(
             else -> TodoStatus.PENDING
         }
     }
+
+    /**
+     * Todo가 특정 사용자에게 할당되었는지 확인
+     * @param userId 확인할 사용자 ID
+     * @return 할당되었으면 true
+     */
+    fun isAssignedTo(userId: Long): Boolean {
+        return assignedTo == userId
+    }
+
+    /**
+     * Todo가 특정 사용자에 의해 생성되었는지 확인
+     * @param userId 확인할 사용자 ID
+     * @return 생성자가 맞으면 true
+     */
+    fun isCreatedBy(userId: Long): Boolean {
+        return createdBy == userId
+    }
+
+    /**
+     * Todo가 할당되지 않은 상태인지 확인
+     * @return 할당되지 않았으면 true
+     */
+    fun isUnassigned(): Boolean {
+        return assignedTo == null
+    }
 }
 
 /**
@@ -85,6 +114,8 @@ data class CreateTodoRequest(
     val title: String,                      // 필수: Todo 제목
     val description: String? = null,        // 선택: Todo 설명
     val priority: Priority? = null,         // 선택: 우선순위 (기본값은 서비스에서 MEDIUM 설정)
+    val projectId: Long? = null,            // 선택: 프로젝트 ID (null이면 개인 프로젝트)
+    val assignedTo: Long? = null,           // 선택: 할당할 사용자 ID
     val dueDate: Instant? = null           // 선택: 마감일
 ) {
     /**
@@ -123,6 +154,7 @@ data class UpdateTodoRequest(
     val description: String? = null,        // 선택: 새로운 설명
     val isCompleted: Boolean? = null,       // 선택: 완료 상태 변경
     val priority: Priority? = null,         // 선택: 새로운 우선순위
+    val assignedTo: Long? = null,           // 선택: 새로운 할당자 ID
     val dueDate: Instant? = null           // 선택: 새로운 마감일
 ) {
     /**
@@ -131,7 +163,7 @@ data class UpdateTodoRequest(
      */
     fun isEmpty(): Boolean {
         return title == null && description == null && isCompleted == null && 
-               priority == null && dueDate == null
+               priority == null && assignedTo == null && dueDate == null
     }
     
     /**
@@ -167,6 +199,9 @@ data class UpdateTodoRequest(
 data class TodoFilters(
     val completed: Boolean? = null,         // 완료 상태 필터 (null이면 전체)
     val priority: Priority? = null,         // 우선순위 필터 (null이면 전체)
+    val projectId: Long? = null,            // 프로젝트 필터 (null이면 전체)
+    val assignedTo: Long? = null,           // 할당자 필터 (null이면 전체)
+    val createdBy: Long? = null,            // 생성자 필터 (null이면 전체)
     val sort: TodoSortField = TodoSortField.CREATED_AT, // 정렬 기준
     val order: SortOrder = SortOrder.DESC   // 정렬 순서
 )
