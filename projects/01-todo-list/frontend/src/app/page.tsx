@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from "next/navigation";
 import { Todo, Priority, CreateTodoRequest, UpdateTodoRequest } from '@/types/api';
 import { getTodos, createTodo, updateTodo, deleteTodo } from '@/lib/api';
 
@@ -39,6 +40,17 @@ declare global {
 }
 
 export default function TodoPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // localStorage에서 토큰 확인
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      // 토큰 없으면 로그인 페이지로 강제 이동
+      router.replace("/login");
+    }
+  }, [router]);
+
   // 상태 관리
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,7 +216,7 @@ export default function TodoPage() {
   // Todo 완료 상태 토글
   const handleToggleComplete = async (todo: Todo) => {
     const updates: UpdateTodoRequest = {
-      completed: !todo.completed
+      isCompleted: !todo.isCompleted
     };
 
     const result = await updateTodo(todo.id, updates);
@@ -269,8 +281,8 @@ export default function TodoPage() {
   // 필터링된 Todo 계산
   const filteredTodos = todos.filter(todo => {
     // 완료 상태 필터
-    if (activeFilter === 'COMPLETED' && !todo.completed) return false;
-    if (activeFilter === 'PENDING' && todo.completed) return false;
+    if (activeFilter === 'COMPLETED' && !todo.isCompleted) return false;
+    if (activeFilter === 'PENDING' && todo.isCompleted) return false;
     
     // 우선순위 필터
     if (priorityFilter !== 'ALL' && todo.priority !== priorityFilter) return false;
@@ -280,7 +292,7 @@ export default function TodoPage() {
 
   // 통계 계산
   const totalCount = todos.length;
-  const completedCount = todos.filter(todo => todo.completed).length;
+  const completedCount = todos.filter(todo => todo.isCompleted).length;
   const pendingCount = totalCount - completedCount;
 
   return (
@@ -570,7 +582,7 @@ export default function TodoPage() {
                   <div
                     key={todo.id}
                     className={`border rounded-lg p-4 transition-all duration-200 hover:shadow-md ${
-                      todo.completed 
+                      todo.isCompleted 
                         ? 'bg-gray-50 border-gray-200 opacity-75' 
                         : `${priorityStyle.bg} ${priorityStyle.border}`
                     }`}
@@ -580,12 +592,12 @@ export default function TodoPage() {
                       <button
                         onClick={() => handleToggleComplete(todo)}
                         className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                          todo.completed
+                          todo.isCompleted
                             ? 'bg-green-500 border-green-500 text-white'
                             : 'border-gray-300 hover:border-green-400'
                         }`}
                       >
-                        {todo.completed && '✓'}
+                        {todo.isCompleted && '✓'}
                       </button>
 
                       {/* 메인 컨텐츠 */}
@@ -593,7 +605,7 @@ export default function TodoPage() {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <h3 className={`font-medium ${
-                              todo.completed 
+                              todo.isCompleted 
                                 ? 'line-through text-gray-500' 
                                 : 'text-gray-900'
                             }`}>
@@ -602,7 +614,7 @@ export default function TodoPage() {
                             
                             {todo.description && (
                               <p className={`mt-1 text-sm ${
-                                todo.completed 
+                                todo.isCompleted 
                                   ? 'line-through text-gray-400' 
                                   : 'text-gray-600'
                               }`}>
