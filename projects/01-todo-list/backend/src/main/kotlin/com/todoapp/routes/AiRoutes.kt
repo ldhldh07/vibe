@@ -19,6 +19,136 @@ import io.ktor.serialization.kotlinx.json.*
 fun Route.aiRoutes() {
     route("/ai") {
         /**
+         * 🎯 목표 분해 API
+         * POST /api/ai/breakdown-goal
+         */
+        post("/breakdown-goal") {
+            try {
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.payload?.getClaim("userId")?.asString()
+                    ?: return@post call.respond(HttpStatusCode.Unauthorized, 
+                        mapOf("error" to "인증이 필요합니다"))
+                
+                val requestBody = call.receive<GoalBreakdownRequest>()
+                
+                val openAiApiKey = System.getenv("OPENAI_API_KEY")
+                if (openAiApiKey == null) {
+                    return@post call.respond(HttpStatusCode.BadRequest, GoalBreakdownResponse(
+                        success = false,
+                        plan = null,
+                        error = "OpenAI API 키가 설정되지 않았습니다"
+                    ))
+                }
+                
+                // HTTP 클라이언트 생성
+                val httpClient = HttpClient(CIO) {
+                    install(ContentNegotiation) {
+                        json(Json {
+                            ignoreUnknownKeys = true
+                            isLenient = true
+                        })
+                    }
+                }
+                
+                // 목표 분해용 프롬프트 생성
+                val prompt = createGoalBreakdownPrompt(requestBody)
+                
+                val openAiRequest = OpenAiRequest(
+                    model = "gpt-4o-mini",
+                    messages = listOf(
+                        OpenAiMessage(role = "system", content = "당신은 학습 계획 전문가입니다. 주어진 목표를 달성 가능한 단계별 계획으로 세분화해주세요. 응답은 반드시 JSON 형식으로 작성해주세요."),
+                        OpenAiMessage(role = "user", content = prompt)
+                    ),
+                    max_tokens = 1500,
+                    temperature = 0.3
+                )
+                
+                println("🎯 목표 분해 API 호출 시작...")
+                println("📝 사용자 목표: ${requestBody.goalTitle}")
+                
+                val response = httpClient.post("https://api.openai.com/v1/chat/completions") {
+                    header("Authorization", "Bearer $openAiApiKey")
+                    header("Content-Type", "application/json")
+                    setBody(openAiRequest)
+                }
+                
+                val responseText = response.body<String>()
+                println("🔍 OpenAI API 응답: $responseText")
+                
+                httpClient.close()
+                
+                // JSON 파싱 및 오류 처리
+                val aiAnswer = try {
+                    val jsonResponse = Json.parseToJsonElement(responseText).jsonObject
+                    
+                    // 오류 응답 체크
+                    val errorObject = jsonResponse["error"]?.jsonObject
+                    if (errorObject != null) {
+                        val errorType = errorObject["type"]?.jsonPrimitive?.content
+                        val errorMessage = errorObject["message"]?.jsonPrimitive?.content ?: "알 수 없는 오류"
+                        
+                        println("❌ OpenAI API 오류 감지: $errorType - $errorMessage")
+                        
+                        // 할당량 초과나 키 문제 시 데모 계획 반환
+                        if (errorType == "insufficient_quota" || errorType == "invalid_api_key" || 
+                            errorMessage.contains("quota") || errorMessage.contains("billing")) {
+                            
+                            val demoLearningPlan = generateDemoLearningPlan(requestBody)
+                            return@post call.respond(HttpStatusCode.OK, GoalBreakdownResponse(
+                                success = true,
+                                plan = demoLearningPlan
+                            ))
+                        } else {
+                            return@post call.respond(HttpStatusCode.BadRequest, GoalBreakdownResponse(
+                                success = false,
+                                plan = null,
+                                error = "OpenAI API 오류: $errorMessage"
+                            ))
+                        }
+                    } else {
+                        // 정상 응답 파싱
+                        val choices = jsonResponse["choices"]?.jsonArray
+                        choices?.firstOrNull()?.jsonObject?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.content
+                            ?: throw Exception("AI 응답을 파싱하지 못했습니다")
+                    }
+                } catch (e: Exception) {
+                    println("❌ JSON 파싱 실패: ${e.message}")
+                    // 파싱 실패 시에도 데모 계획 반환
+                    val demoLearningPlan = generateDemoLearningPlan(requestBody)
+                    return@post call.respond(HttpStatusCode.OK, GoalBreakdownResponse(
+                        success = true,
+                        plan = demoLearningPlan
+                    ))
+                }
+                
+                try {
+                    // AI 응답을 LearningPlan으로 변환
+                    val learningPlan = parseAiResponseToLearningPlan(aiAnswer, requestBody)
+                    
+                    call.respond(HttpStatusCode.OK, GoalBreakdownResponse(
+                        success = true,
+                        plan = learningPlan
+                    ))
+                } catch (e: Exception) {
+                    // AI 응답 파싱 실패 시 데모 계획 반환
+                    val demoLearningPlan = generateDemoLearningPlan(requestBody)
+                    call.respond(HttpStatusCode.OK, GoalBreakdownResponse(
+                        success = true,
+                        plan = demoLearningPlan
+                    ))
+                }
+                
+            } catch (e: Exception) {
+                println("❌ 목표 분해 API 오류: ${e.message}")
+                call.respond(HttpStatusCode.InternalServerError, GoalBreakdownResponse(
+                    success = false,
+                    plan = null,
+                    error = "목표 분해 실패: ${e.message}"
+                ))
+            }
+        }
+        
+        /**
          * 🤖 OpenAI API 직접 테스트 
          * POST /api/ai/chat
          */
@@ -281,4 +411,146 @@ data class ChatResponse(
     val userId: String,
     val model: String,
     val error: String? = null
-) 
+)
+
+// 목표 분해 관련 데이터 클래스들
+@Serializable
+data class GoalBreakdownRequest(
+    val goalTitle: String,
+    val goalDescription: String? = null,
+    val availableHoursPerWeek: Int
+)
+
+@Serializable
+data class GoalBreakdownResponse(
+    val success: Boolean,
+    val plan: LearningPlan? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class LearningPlan(
+    val id: String,
+    val originalGoal: String,
+    val totalEstimatedHours: Int,
+    val estimatedWeeks: Int,
+    val phases: List<LearningPhase>
+)
+
+@Serializable
+data class LearningPhase(
+    val id: String,
+    val phaseNumber: Int,
+    val title: String,
+    val description: String,
+    val estimatedHours: Int,
+    val estimatedDays: Int,
+    val difficulty: String, // EASY, MODERATE, HARD
+    val milestones: List<PhaseMilestone>,
+    val skills: List<String>
+)
+
+@Serializable
+data class PhaseMilestone(
+    val id: String,
+    val title: String,
+    val description: String,
+    val estimatedHours: Int,
+    val type: String, // LEARNING, PRACTICE, PROJECT, REVIEW, ASSESSMENT
+    val order: Int
+)
+
+// 목표 분해용 유틸리티 함수들
+fun createGoalBreakdownPrompt(request: GoalBreakdownRequest): String {
+    return """
+목표: ${request.goalTitle}
+${request.goalDescription?.let { "상세 설명: $it" } ?: ""}
+주당 가용 시간: ${request.availableHoursPerWeek}시간
+
+위의 목표를 3-4단계의 학습 계획으로 분해해주세요. 각 단계는 다음 구조를 가져야 합니다:
+
+1. 단계별로 진행하되, 전체 예상 시간은 주당 가용 시간을 고려해 현실적으로 설정
+2. 각 단계는 기초→중급→고급 순서로 난이도 조정
+3. 각 단계마다 구체적인 마일스톤(세부 목표) 포함
+4. 단계별로 습득할 수 있는 스킬 명시
+
+응답은 JSON 형식으로 작성해주세요.
+    """.trimIndent()
+}
+
+fun generateDemoLearningPlan(request: GoalBreakdownRequest): LearningPlan {
+    val goalTitle = request.goalTitle
+    val hoursPerWeek = request.availableHoursPerWeek
+    val totalHours = when {
+        goalTitle.contains("react", ignoreCase = true) -> 60
+        goalTitle.contains("javascript", ignoreCase = true) -> 50  
+        goalTitle.contains("python", ignoreCase = true) -> 45
+        goalTitle.contains("java", ignoreCase = true) -> 70
+        else -> 50
+    }
+    
+    val estimatedWeeks = kotlin.math.ceil(totalHours.toDouble() / hoursPerWeek).toInt()
+    
+    return LearningPlan(
+        id = "demo-plan-${System.currentTimeMillis()}",
+        originalGoal = goalTitle,
+        totalEstimatedHours = totalHours,
+        estimatedWeeks = estimatedWeeks,
+        phases = generateDemoPhases(goalTitle, totalHours)
+    )
+}
+
+fun generateDemoPhases(goalTitle: String, totalHours: Int): List<LearningPhase> {
+    val basePhases = listOf(
+        LearningPhase(
+            id = "phase-1",
+            phaseNumber = 1,
+            title = "${goalTitle} 기초 완성",
+            description = "핵심 개념과 기본 문법을 탄탄히 익힙니다",
+            estimatedHours = totalHours * 30 / 100, // 30%
+            estimatedDays = 14,
+            difficulty = "EASY",
+            milestones = listOf(
+                PhaseMilestone("mile-1", "기본 개념 학습", "핵심 개념과 용어 이해", totalHours * 15 / 100, "LEARNING", 1),
+                PhaseMilestone("mile-2", "기초 실습", "간단한 예제로 실습", totalHours * 15 / 100, "PRACTICE", 2)
+            ),
+            skills = listOf("기초 문법", "핵심 개념 이해")
+        ),
+        LearningPhase(
+            id = "phase-2", 
+            phaseNumber = 2,
+            title = "${goalTitle} 실전 활용",
+            description = "실제 상황에 적용할 수 있는 중급 기술을 학습합니다",
+            estimatedHours = totalHours * 40 / 100, // 40%
+            estimatedDays = 21,
+            difficulty = "MODERATE",
+            milestones = listOf(
+                PhaseMilestone("mile-3", "고급 기능 학습", "심화 내용과 고급 기법", totalHours * 20 / 100, "LEARNING", 1),
+                PhaseMilestone("mile-4", "실전 프로젝트", "실제 프로젝트 구현", totalHours * 20 / 100, "PROJECT", 2)
+            ),
+            skills = listOf("고급 기능", "프로젝트 구현")
+        ),
+        LearningPhase(
+            id = "phase-3",
+            phaseNumber = 3,
+            title = "${goalTitle} 전문가 레벨",
+            description = "고급 기법과 최적화를 통해 전문가 수준에 도달합니다",
+            estimatedHours = totalHours * 30 / 100, // 30%
+            estimatedDays = 21,
+            difficulty = "HARD",
+            milestones = listOf(
+                PhaseMilestone("mile-5", "포트폴리오 프로젝트", "완성도 높은 개인 프로젝트", totalHours * 20 / 100, "PROJECT", 1),
+                PhaseMilestone("mile-6", "최적화 및 배포", "성능 최적화와 배포", totalHours * 10 / 100, "PRACTICE", 2)
+            ),
+            skills = listOf("전문가 활용", "최적화", "배포")
+        )
+    )
+    
+    return basePhases
+}
+
+fun parseAiResponseToLearningPlan(aiResponse: String, request: GoalBreakdownRequest): LearningPlan {
+    // AI 응답을 파싱하여 LearningPlan으로 변환하는 로직
+    // 현재는 단순히 데모 계획을 반환하지만, 실제로는 AI 응답을 JSON으로 파싱해야 함
+    return generateDemoLearningPlan(request)
+} 

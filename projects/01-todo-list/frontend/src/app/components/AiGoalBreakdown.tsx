@@ -49,109 +49,41 @@ const AiGoalBreakdown: React.FC = () => {
     setIsLoading(true)
 
     try {
-      // 목업 데이터로 데모 구현
-      setTimeout(() => {
-        const mockPlan: LearningPlan = {
-          id: 'demo-plan-1',
-          originalGoal: goalTitle,
-          totalEstimatedHours: 50,
-          estimatedWeeks: Math.ceil(50 / availableHoursPerWeek),
-          phases: [
-            {
-              id: 'phase-1',
-              phaseNumber: 1,
-              title: `${goalTitle} 기초 개념 이해`,
-              description: '기본 개념과 핵심 원리를 학습합니다',
-              estimatedHours: 10,
-              estimatedDays: 7,
-              difficulty: 'EASY',
-              milestones: [
-                {
-                  id: 'milestone-1',
-                  title: '기본 개념 학습',
-                  description: '핵심 용어와 개념 이해',
-                  estimatedHours: 4,
-                  type: 'LEARNING',
-                  order: 1
-                },
-                {
-                  id: 'milestone-2',
-                  title: '실습 예제',
-                  description: '간단한 예제를 따라해보기',
-                  estimatedHours: 6,
-                  type: 'PRACTICE',
-                  order: 2
-                }
-              ],
-              skills: ['기초 개념', '기본 실습']
-            },
-            {
-              id: 'phase-2',
-              phaseNumber: 2,
-              title: `${goalTitle} 중급 활용`,
-              description: '배운 내용을 확장하고 실제 상황에 적용합니다',
-              estimatedHours: 20,
-              estimatedDays: 14,
-              difficulty: 'MODERATE',
-              milestones: [
-                {
-                  id: 'milestone-3',
-                  title: '고급 기능 학습',
-                  description: '심화 내용과 고급 기능 익히기',
-                  estimatedHours: 10,
-                  type: 'LEARNING',
-                  order: 1
-                },
-                {
-                  id: 'milestone-4',
-                  title: '프로젝트 실습',
-                  description: '실제 프로젝트에 적용해보기',
-                  estimatedHours: 10,
-                  type: 'PROJECT',
-                  order: 2
-                }
-              ],
-              skills: ['고급 기능', '프로젝트 적용']
-            },
-            {
-              id: 'phase-3',
-              phaseNumber: 3,
-              title: `${goalTitle} 마스터`,
-              description: '전문가 수준의 활용과 포트폴리오 완성',
-              estimatedHours: 20,
-              estimatedDays: 21,
-              difficulty: 'HARD',
-              milestones: [
-                {
-                  id: 'milestone-5',
-                  title: '포트폴리오 프로젝트',
-                  description: '완성도 높은 개인 프로젝트 구현',
-                  estimatedHours: 15,
-                  type: 'PROJECT',
-                  order: 1
-                },
-                {
-                  id: 'milestone-6',
-                  title: '최적화 및 배포',
-                  description: '성능 최적화와 실제 배포까지',
-                  estimatedHours: 5,
-                  type: 'PROJECT',
-                  order: 2
-                }
-              ],
-              skills: ['전문가 활용', '포트폴리오']
-            }
-          ]
-        }
-        
-        setGeneratedPlan(mockPlan)
+      // 실제 백엔드 AI API 호출
+      const token = localStorage.getItem('token')
+      if (!token) {
+        alert('로그인이 필요합니다.')
         setIsLoading(false)
-      }, 2000)
+        return
+      }
 
+      const response = await fetch('/api/ai/breakdown-goal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          goalTitle,
+          goalDescription: goalDescription || null,
+          availableHoursPerWeek
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success && data.plan) {
+        setGeneratedPlan(data.plan)
+      } else {
+        console.error('계획 생성 실패:', data.error)
+        alert(data.error || '계획 생성 중 오류가 발생했습니다.')
+      }
+      
     } catch (error) {
       console.error('계획 생성 실패:', error)
-      setIsLoading(false)
       alert('계획 생성 중 오류가 발생했습니다.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
