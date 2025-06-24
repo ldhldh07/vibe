@@ -1,0 +1,479 @@
+package com.todoapp.service
+
+/**
+ * AI 기반 목표 분해 및 학습 계획 생성 서비스
+ */
+
+import com.todoapp.models.*
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.request.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import kotlinx.datetime.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import java.util.*
+
+class AiService {
+    private val httpClient = HttpClient(CIO) {
+        install(ContentNegotiation) {
+            json(Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            })
+        }
+    }
+
+    // 임시로 OpenAI API 키 (실제 환경에서는 환경변수로 관리)
+    private val openAiApiKey = System.getenv("OPENAI_API_KEY") 
+        ?: "demo-key" // 데모용 (실제로는 환경변수 필수)
+
+    /**
+     * AI를 사용해 목표를 세분화된 학습 계획으로 변환
+     */
+    suspend fun generateLearningPlan(request: AiGoalBreakdownRequest, userId: String): AiLearningPlan {
+        return if (openAiApiKey == "demo-key") {
+            // 데모 모드: 실제 AI 대신 미리 정의된 계획 반환
+            generateDemoLearningPlan(request, userId)
+        } else {
+            // 실제 AI API 호출
+            generateRealLearningPlan(request, userId)
+        }
+    }
+
+    /**
+     * 실제 OpenAI API를 사용한 학습 계획 생성
+     */
+    private suspend fun generateRealLearningPlan(request: AiGoalBreakdownRequest, userId: String): AiLearningPlan {
+        val prompt = AiPromptTemplates.createGoalBreakdownPrompt(request)
+        
+        val openAiRequest = OpenAiRequest(
+            model = "gpt-4o-mini",
+            messages = listOf(
+                OpenAiMessage(
+                    role = "system",
+                    content = """당신은 전문적인 학습 계획 수립 전문가입니다. 
+                    사용자의 목표를 분석하여 달성 가능한 단계별 학습 계획을 수립해주세요.
+                    응답은 반드시 JSON 형식으로 해주세요."""
+                ),
+                OpenAiMessage(role = "user", content = prompt)
+            ),
+            temperature = 0.7,
+            maxTokens = 2000
+        )
+
+        try {
+            val response: OpenAiResponse = httpClient.post("https://api.openai.com/v1/chat/completions") {
+                header("Authorization", "Bearer $openAiApiKey")
+                header("Content-Type", "application/json")
+                setBody(openAiRequest)
+            }.body()
+
+            val aiContent = response.choices.firstOrNull()?.message?.content
+                ?: throw Exception("AI 응답이 비어있습니다")
+
+            // AI 응답을 파싱하여 학습 계획 생성
+            return parseAiResponseToLearningPlan(aiContent, request, userId)
+            
+        } catch (e: Exception) {
+            println("OpenAI API 호출 실패: ${e.message}")
+            // 실패 시 데모 계획 반환
+            return generateDemoLearningPlan(request, userId)
+        }
+    }
+
+    /**
+     * 데모용 학습 계획 생성 (AI API 없이도 테스트 가능)
+     */
+    private fun generateDemoLearningPlan(request: AiGoalBreakdownRequest, userId: String): AiLearningPlan {
+        val planId = UUID.randomUUID().toString()
+        val now = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC)
+
+        // 목표에 따른 맞춤형 계획 생성
+        val phases = when {
+            request.goalTitle.contains("React", ignoreCase = true) -> createReactLearningPhases()
+            request.goalTitle.contains("Python", ignoreCase = true) -> createPythonLearningPhases()
+            request.goalTitle.contains("알고리즘", ignoreCase = true) -> createAlgorithmLearningPhases()
+            request.goalTitle.contains("웹", ignoreCase = true) -> createWebLearningPhases()
+            else -> createGeneralLearningPhases(request.goalTitle)
+        }
+
+        return AiLearningPlan(
+            id = planId,
+            originalGoal = request.goalTitle,
+            totalEstimatedHours = phases.sumOf { it.estimatedHours },
+            estimatedWeeks = (phases.sumOf { it.estimatedHours } / request.availableHoursPerWeek) + 1,
+            phases = phases,
+            prerequisites = getPrerequisites(request.goalTitle),
+            recommendedResources = getRecommendedResources(request.goalTitle),
+            createdAt = now,
+            createdBy = userId
+        )
+    }
+
+    /**
+     * React 학습 계획 생성
+     */
+    private fun createReactLearningPhases(): List<LearningPhase> {
+        return listOf(
+            LearningPhase(
+                id = UUID.randomUUID().toString(),
+                phaseNumber = 1,
+                title = "React 기초 개념 이해",
+                description = "React의 핵심 개념과 기본 문법을 익힙니다",
+                estimatedHours = 10,
+                estimatedDays = 7,
+                difficulty = TaskDifficulty.EASY,
+                milestones = listOf(
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "React 개념 이해",
+                        description = "컴포넌트, JSX, Virtual DOM 개념 학습",
+                        estimatedHours = 3.0f,
+                        type = MilestoneType.LEARNING,
+                        order = 1
+                    ),
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "첫 번째 컴포넌트 만들기",
+                        description = "간단한 Hello World 컴포넌트 작성",
+                        estimatedHours = 2.0f,
+                        type = MilestoneType.PRACTICE,
+                        order = 2
+                    ),
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "JSX 문법 연습",
+                        description = "JSX 문법을 사용한 다양한 예제 작성",
+                        estimatedHours = 5.0f,
+                        type = MilestoneType.PRACTICE,
+                        order = 3
+                    )
+                ),
+                skills = listOf("React 기초", "JSX", "컴포넌트")
+            ),
+            LearningPhase(
+                id = UUID.randomUUID().toString(),
+                phaseNumber = 2,
+                title = "Props와 State 마스터",
+                description = "컴포넌트 간 데이터 전달과 상태 관리를 학습합니다",
+                estimatedHours = 15,
+                estimatedDays = 10,
+                difficulty = TaskDifficulty.MODERATE,
+                milestones = listOf(
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "Props 사용법 익히기",
+                        description = "부모에서 자식으로 데이터 전달",
+                        estimatedHours = 4.0f,
+                        type = MilestoneType.LEARNING,
+                        order = 1
+                    ),
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "State 관리하기",
+                        description = "useState 훅을 사용한 상태 관리",
+                        estimatedHours = 6.0f,
+                        type = MilestoneType.PRACTICE,
+                        order = 2
+                    ),
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "이벤트 처리하기",
+                        description = "클릭, 입력 등 사용자 이벤트 처리",
+                        estimatedHours = 5.0f,
+                        type = MilestoneType.PRACTICE,
+                        order = 3
+                    )
+                ),
+                skills = listOf("Props", "State", "이벤트 처리")
+            ),
+            LearningPhase(
+                id = UUID.randomUUID().toString(),
+                phaseNumber = 3,
+                title = "실전 프로젝트 구현",
+                description = "Todo 앱을 만들어 배운 내용을 실제로 적용합니다",
+                estimatedHours = 25,
+                estimatedDays = 21,
+                difficulty = TaskDifficulty.HARD,
+                milestones = listOf(
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "프로젝트 설계",
+                        description = "컴포넌트 구조와 데이터 흐름 설계",
+                        estimatedHours = 3.0f,
+                        type = MilestoneType.PROJECT,
+                        order = 1
+                    ),
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "기본 기능 구현",
+                        description = "할일 추가, 삭제, 수정 기능 구현",
+                        estimatedHours = 12.0f,
+                        type = MilestoneType.PROJECT,
+                        order = 2
+                    ),
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "고급 기능 추가",
+                        description = "필터링, 정렬, 로컬 스토리지 등",
+                        estimatedHours = 10.0f,
+                        type = MilestoneType.PROJECT,
+                        order = 3
+                    )
+                ),
+                skills = listOf("프로젝트 설계", "상태 관리", "최적화")
+            )
+        )
+    }
+
+    /**
+     * Python 학습 계획 생성
+     */
+    private fun createPythonLearningPhases(): List<LearningPhase> = emptyList()
+
+    /**
+     * 알고리즘 학습 계획 생성
+     */
+    private fun createAlgorithmLearningPhases(): List<LearningPhase> = emptyList()
+
+    /**
+     * 웹 개발 학습 계획 생성
+     */
+    private fun createWebLearningPhases(): List<LearningPhase> = emptyList()
+
+    /**
+     * 일반적인 학습 계획 생성
+     */
+    private fun createGeneralLearningPhases(goalTitle: String): List<LearningPhase> {
+        return listOf(
+            LearningPhase(
+                id = UUID.randomUUID().toString(),
+                phaseNumber = 1,
+                title = "$goalTitle 기초 이해",
+                description = "기본 개념과 핵심 원리를 학습합니다",
+                estimatedHours = 10,
+                estimatedDays = 7,
+                difficulty = TaskDifficulty.EASY,
+                milestones = listOf(
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "기본 개념 학습",
+                        description = "핵심 용어와 개념 이해",
+                        estimatedHours = 4.0f,
+                        type = MilestoneType.LEARNING,
+                        order = 1
+                    ),
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "실습 예제",
+                        description = "간단한 예제를 따라해보기",
+                        estimatedHours = 6.0f,
+                        type = MilestoneType.PRACTICE,
+                        order = 2
+                    )
+                ),
+                skills = listOf("기초 개념", "기본 실습")
+            ),
+            LearningPhase(
+                id = UUID.randomUUID().toString(),
+                phaseNumber = 2,
+                title = "$goalTitle 실전 적용",
+                description = "배운 내용을 실제 프로젝트에 적용합니다",
+                estimatedHours = 20,
+                estimatedDays = 14,
+                difficulty = TaskDifficulty.MODERATE,
+                milestones = listOf(
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "프로젝트 기획",
+                        description = "목표와 범위 설정",
+                        estimatedHours = 3.0f,
+                        type = MilestoneType.PROJECT,
+                        order = 1
+                    ),
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "구현 및 테스트",
+                        description = "실제 기능 구현하기",
+                        estimatedHours = 15.0f,
+                        type = MilestoneType.PROJECT,
+                        order = 2
+                    ),
+                    PhaseMilestone(
+                        id = UUID.randomUUID().toString(),
+                        title = "완성 및 배포",
+                        description = "최종 완성과 공유",
+                        estimatedHours = 2.0f,
+                        type = MilestoneType.PROJECT,
+                        order = 3
+                    )
+                ),
+                skills = listOf("프로젝트 관리", "실전 적용")
+            )
+        )
+    }
+
+    /**
+     * 목표별 선수 지식 반환
+     */
+    private fun getPrerequisites(goalTitle: String): List<String> {
+        return when {
+            goalTitle.contains("React", ignoreCase = true) -> 
+                listOf("JavaScript 기초", "HTML/CSS", "ES6+ 문법")
+            goalTitle.contains("Python", ignoreCase = true) -> 
+                listOf("프로그래밍 기초 개념")
+            goalTitle.contains("알고리즘", ignoreCase = true) -> 
+                listOf("프로그래밍 언어 기초", "수학적 사고")
+            goalTitle.contains("웹", ignoreCase = true) -> 
+                listOf("컴퓨터 기초", "인터넷 이해")
+            else -> listOf("기초 컴퓨터 활용")
+        }
+    }
+
+    /**
+     * 목표별 추천 자료 반환
+     */
+    private fun getRecommendedResources(goalTitle: String): List<ResourceRecommendation> {
+        return when {
+            goalTitle.contains("React", ignoreCase = true) -> listOf(
+                ResourceRecommendation(
+                    title = "React 공식 문서",
+                    type = ResourceType.DOCUMENTATION,
+                    url = "https://react.dev",
+                    description = "React의 공식 가이드와 API 문서",
+                    difficulty = TaskDifficulty.MODERATE,
+                    estimatedTime = "지속적 참조"
+                ),
+                ResourceRecommendation(
+                    title = "React Tutorial",
+                    type = ResourceType.TUTORIAL,
+                    url = "https://react.dev/learn/tutorial-tic-tac-toe",
+                    description = "공식 튜토리얼로 틱택토 게임 만들기",
+                    difficulty = TaskDifficulty.EASY,
+                    estimatedTime = "2-3시간"
+                )
+            )
+            goalTitle.contains("Python", ignoreCase = true) -> listOf(
+                ResourceRecommendation(
+                    title = "Python.org 튜토리얼",
+                    type = ResourceType.TUTORIAL,
+                    url = "https://docs.python.org/3/tutorial/",
+                    description = "Python 공식 튜토리얼",
+                    difficulty = TaskDifficulty.EASY,
+                    estimatedTime = "1주"
+                )
+            )
+            else -> listOf(
+                ResourceRecommendation(
+                    title = "관련 온라인 강의",
+                    type = ResourceType.VIDEO_COURSE,
+                    description = "목표에 맞는 온라인 강의 수강",
+                    difficulty = TaskDifficulty.MODERATE,
+                    estimatedTime = "수강 시간에 따라"
+                )
+            )
+        }
+    }
+
+    /**
+     * AI 응답을 학습 계획으로 파싱 (실제 구현시 JSON 파싱 로직 필요)
+     */
+    private fun parseAiResponseToLearningPlan(
+        aiContent: String, 
+        request: AiGoalBreakdownRequest, 
+        userId: String
+    ): AiLearningPlan {
+        // 실제로는 AI 응답을 파싱하는 로직이 필요
+        // 현재는 데모 계획 반환
+        return generateDemoLearningPlan(request, userId)
+    }
+
+    /**
+     * 일일 학습 추천 생성
+     */
+    suspend fun generateDailyRecommendation(
+        userId: String, 
+        progress: UserProgress, 
+        plan: AiLearningPlan,
+        availableMinutes: Int
+    ): DailyRecommendation {
+        val currentPhase = plan.phases.getOrNull(progress.currentPhase - 1)
+        val today = Clock.System.todayIn(kotlinx.datetime.TimeZone.UTC)
+        
+        val recommendedTasks = currentPhase?.milestones
+            ?.filter { !progress.completedMilestones.contains(it.id) }
+            ?.take(3)
+            ?.mapIndexed { index, milestone ->
+                RecommendedTask(
+                    id = UUID.randomUUID().toString(),
+                    title = milestone.title,
+                    description = milestone.description,
+                    type = milestone.type,
+                    estimatedMinutes = (milestone.estimatedHours * 60).toInt(),
+                    priority = when (index) {
+                        0 -> TaskPriority.HIGH
+                        1 -> TaskPriority.MEDIUM
+                        else -> TaskPriority.LOW
+                    },
+                    phaseId = currentPhase.id,
+                    milestoneId = milestone.id
+                )
+            } ?: emptyList()
+
+        return DailyRecommendation(
+            id = UUID.randomUUID().toString(),
+            userId = userId,
+            date = today,
+            recommendedTasks = recommendedTasks,
+            estimatedTotalTime = recommendedTasks.sumOf { it.estimatedMinutes }.coerceAtMost(availableMinutes),
+            focusArea = currentPhase?.title ?: "학습 계획 검토",
+            motivationalMessage = generateMotivationalMessage(progress),
+            generatedAt = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC)
+        )
+    }
+
+    /**
+     * 동기부여 메시지 생성
+     */
+    private fun generateMotivationalMessage(progress: UserProgress): String {
+        val progressPercent = (progress.totalProgress * 100).toInt()
+        
+        return when {
+            progressPercent < 10 -> "새로운 시작! 한 걸음씩 나아가세요 🚀"
+            progressPercent < 30 -> "좋은 출발입니다! 꾸준함이 힘이에요 💪"
+            progressPercent < 50 -> "벌써 ${progressPercent}% 완성! 중간 지점을 넘었어요 🎯"
+            progressPercent < 80 -> "이제 얼마 남지 않았어요! 마지막 스퍼트 💨"
+            progressPercent < 95 -> "거의 완주! 조금만 더 힘내세요 🏁"
+            else -> "완주를 눈앞에 두고 있어요! 마지막까지 화이팅! 🎉"
+        }
+    }
+}
+
+// OpenAI API 관련 데이터 클래스들
+@Serializable
+data class OpenAiRequest(
+    val model: String,
+    val messages: List<OpenAiMessage>,
+    val temperature: Double = 0.7,
+    val maxTokens: Int = 1000
+)
+
+@Serializable
+data class OpenAiMessage(
+    val role: String,
+    val content: String
+)
+
+@Serializable
+data class OpenAiResponse(
+    val choices: List<OpenAiChoice>
+)
+
+@Serializable
+data class OpenAiChoice(
+    val message: OpenAiMessage
+) 

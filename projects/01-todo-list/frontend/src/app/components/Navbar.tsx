@@ -49,10 +49,18 @@ export default function Navbar() {
       {/* 우측: 인증 상태에 따라 버튼/유저 영역 표시 */}
       <div className="flex items-center space-x-4">
         {user ? (
-          // 로그인 상태: 사용자 정보 + 내 정보 + 로그아웃 버튼
+          // 로그인 상태: 사용자 정보 + AI 테스트 + 내 정보 + 로그아웃 버튼
           <>
             {/* 사용자 이름/이메일 표시 */}
             <span className="text-gray-700 font-medium">{user.name || user.email}</span>
+            {/* AI 테스트 페이지 링크 */}
+            <Link
+              href="/ai-test"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:from-purple-600 hover:to-pink-600 transition-colors duration-200 flex items-center space-x-1"
+            >
+              <span>🤖</span>
+              <span>AI 테스트</span>
+            </Link>
             {/* 내 정보 페이지 링크 */}
             <Link
               href="/profile"

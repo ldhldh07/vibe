@@ -21,6 +21,7 @@ import com.todoapp.routes.todoRoutes
 import com.todoapp.routes.profileRoutes
 import com.todoapp.routes.authRoutes
 import com.todoapp.routes.projectRoutes
+import com.todoapp.routes.aiRoutes
 import com.todoapp.models.*
 import com.todoapp.utils.FileUploadUtils
 import com.todoapp.auth.JwtConfig
@@ -253,6 +254,9 @@ fun Application.configureRouting() {
                 
                 // 프로필 API 라우팅 등록 (인증 필요)
                 profileRoutes()
+                
+                // AI API 라우팅 등록 (인증 필요)
+                aiRoutes()
             }
         }
     }

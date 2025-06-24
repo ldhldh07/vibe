@@ -63,6 +63,11 @@ dependencies {
     // Kotlinx DateTime for ISO 8601 support
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
     
+    // Ktor Client for HTTP requests (AI API calls)
+    implementation("io.ktor:ktor-client-core-jvm")
+    implementation("io.ktor:ktor-client-cio-jvm")
+    implementation("io.ktor:ktor-client-content-negotiation-jvm")
+    
     // Logging
     implementation("ch.qos.logback:logback-classic:1.4.14")
     

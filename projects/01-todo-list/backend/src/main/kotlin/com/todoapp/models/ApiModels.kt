@@ -88,4 +88,45 @@ data class ErrorDetails(
     val code: String,
     val message: String,
     val details: Map<String, String>? = null
+)
+
+/**
+ * 현재 사용자 정보와 토큰 정보를 담는 응답 데이터 클래스
+ */
+@Serializable
+data class CurrentUserResponse(
+    val user: UserProfile,
+    val tokenInfo: TokenInfo
+)
+
+/**
+ * 토큰 정보를 담는 데이터 클래스
+ */
+@Serializable
+data class TokenInfo(
+    val expiresAt: Long,
+    val remainingTime: Long
+)
+
+/**
+ * 토큰 검증 응답 데이터 클래스
+ */
+@Serializable
+data class TokenVerificationResponse(
+    val valid: Boolean,
+    val tokenInfo: com.todoapp.auth.TokenInfo? = null,
+    val remainingTime: Long? = null,
+    val isExpired: Boolean? = null,
+    val error: String? = null
+)
+
+/**
+ * 인증 시스템 상태 응답 데이터 클래스
+ */
+@Serializable
+data class AuthStatusResponse(
+    val authSystem: String,
+    val jwtConfig: String,
+    val userCount: Int,
+    val endpoints: List<String>
 ) 

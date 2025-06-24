@@ -309,13 +309,12 @@ private suspend fun handleCurrentUserInfo(call: ApplicationCall) {
         // 사용자 프로필 응답
         call.respond(
             HttpStatusCode.OK,
-            ApiResponse(
-                success = true,
-                data = mapOf(
-                    "user" to userStorage.toUserProfile(user),
-                    "tokenInfo" to mapOf(
-                        "expiresAt" to tokenInfo.expiresAt.epochSeconds,
-                        "remainingTime" to JwtConfig.getTokenRemainingTime(tokenInfo)
+            ApiResponse.success(
+                CurrentUserResponse(
+                    user = userStorage.toUserProfile(user),
+                    tokenInfo = TokenInfo(
+                        expiresAt = tokenInfo.expiresAt.epochSeconds,
+                        remainingTime = JwtConfig.getTokenRemainingTime(tokenInfo)
                     )
                 )
             )
@@ -349,24 +348,22 @@ private suspend fun handleTokenVerification(call: ApplicationCall) {
             val tokenInfo = tokenVerification.getOrThrow()
             call.respond(
                 HttpStatusCode.OK,
-                ApiResponse(
-                    success = true,
-                    data = mapOf(
-                        "valid" to true,
-                        "tokenInfo" to tokenInfo,
-                        "remainingTime" to JwtConfig.getTokenRemainingTime(tokenInfo),
-                        "isExpired" to JwtConfig.isTokenExpired(tokenInfo)
+                ApiResponse.success(
+                    TokenVerificationResponse(
+                        valid = true,
+                        tokenInfo = tokenInfo,
+                        remainingTime = JwtConfig.getTokenRemainingTime(tokenInfo),
+                        isExpired = JwtConfig.isTokenExpired(tokenInfo)
                     )
                 )
             )
         } else {
             call.respond(
                 HttpStatusCode.BadRequest,
-                ApiResponse(
-                    success = false,
-                    data = mapOf(
-                        "valid" to false,
-                        "error" to tokenVerification.exceptionOrNull()?.message
+                ApiResponse.success(
+                    TokenVerificationResponse(
+                        valid = false,
+                        error = tokenVerification.exceptionOrNull()?.message
                     )
                 )
             )
@@ -394,13 +391,12 @@ private suspend fun handleAuthStatus(call: ApplicationCall) {
     try {
         call.respond(
             HttpStatusCode.OK,
-            ApiResponse(
-                success = true,
-                data = mapOf(
-                    "authSystem" to "active",
-                    "jwtConfig" to JwtConfig.getConfigInfo(),
-                    "userCount" to userStorage.getUserCount(),
-                    "endpoints" to listOf(
+            ApiResponse.success(
+                AuthStatusResponse(
+                    authSystem = "active",
+                    jwtConfig = JwtConfig.getConfigInfo(),
+                    userCount = userStorage.getUserCount(),
+                    endpoints = listOf(
                         "POST /api/auth/register - 회원가입",
                         "POST /api/auth/login - 로그인",
                         "GET /api/auth/me - 현재 사용자 정보 (JWT 필요)",
