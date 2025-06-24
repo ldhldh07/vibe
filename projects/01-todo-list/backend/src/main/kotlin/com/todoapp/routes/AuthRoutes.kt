@@ -351,7 +351,6 @@ private suspend fun handleTokenVerification(call: ApplicationCall) {
                 ApiResponse.success(
                     TokenVerificationResponse(
                         valid = true,
-                        tokenInfo = tokenInfo,
                         remainingTime = JwtConfig.getTokenRemainingTime(tokenInfo),
                         isExpired = JwtConfig.isTokenExpired(tokenInfo)
                     )
@@ -389,23 +388,23 @@ private suspend fun handleTokenVerification(call: ApplicationCall) {
  */
 private suspend fun handleAuthStatus(call: ApplicationCall) {
     try {
-        call.respond(
-            HttpStatusCode.OK,
-            ApiResponse.success(
-                AuthStatusResponse(
-                    authSystem = "active",
-                    jwtConfig = JwtConfig.getConfigInfo(),
-                    userCount = userStorage.getUserCount(),
-                    endpoints = listOf(
-                        "POST /api/auth/register - 회원가입",
-                        "POST /api/auth/login - 로그인",
-                        "GET /api/auth/me - 현재 사용자 정보 (JWT 필요)",
-                        "POST /api/auth/verify - 토큰 검증",
-                        "GET /api/auth/status - 시스템 상태"
+                    call.respond(
+                HttpStatusCode.OK,
+                ApiResponse.success(
+                    AuthStatusResponse(
+                        authSystem = "active",
+                        jwtConfigInfo = JwtConfig.getConfigInfo().mapValues { it.value.toString() },
+                        userCount = userStorage.getUserCount(),
+                        endpoints = listOf(
+                            "POST /api/auth/register - 회원가입",
+                            "POST /api/auth/login - 로그인",
+                            "GET /api/auth/me - 현재 사용자 정보 (JWT 필요)",
+                            "POST /api/auth/verify - 토큰 검증",
+                            "GET /api/auth/status - 시스템 상태"
+                        )
                     )
                 )
             )
-        )
     } catch (e: Exception) {
         call.respond(
             HttpStatusCode.InternalServerError,

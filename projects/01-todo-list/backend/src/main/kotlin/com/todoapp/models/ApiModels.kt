@@ -114,7 +114,6 @@ data class TokenInfo(
 @Serializable
 data class TokenVerificationResponse(
     val valid: Boolean,
-    val tokenInfo: com.todoapp.auth.TokenInfo? = null,
     val remainingTime: Long? = null,
     val isExpired: Boolean? = null,
     val error: String? = null
@@ -126,7 +125,7 @@ data class TokenVerificationResponse(
 @Serializable
 data class AuthStatusResponse(
     val authSystem: String,
-    val jwtConfig: String,
+    val jwtConfigInfo: Map<String, String>,
     val userCount: Int,
     val endpoints: List<String>
 ) 
