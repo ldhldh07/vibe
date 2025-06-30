@@ -54,12 +54,21 @@ export default function Navbar() {
             {/* 사용자 이름/이메일 표시 */}
             <span className="text-gray-700 font-medium">{user.name || user.email}</span>
             {/* AI 테스트 페이지 링크 */}
+            {/* AI 목표 분해 페이지 링크 */}
+            <Link
+              href="/ai-breakdown"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold hover:from-blue-600 hover:to-indigo-600 transition-colors duration-200 flex items-center space-x-1"
+            >
+              <span>🎯</span>
+              <span>AI 목표 분해</span>
+            </Link>
+            {/* AI 채팅 테스트 링크 */}
             <Link
               href="/ai-test"
               className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:from-purple-600 hover:to-pink-600 transition-colors duration-200 flex items-center space-x-1"
             >
               <span>🤖</span>
-              <span>AI 테스트</span>
+              <span>AI 채팅</span>
             </Link>
             {/* 내 정보 페이지 링크 */}
             <Link
