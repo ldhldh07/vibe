@@ -97,11 +97,18 @@ const addCurrentPage = async () => {
     if (tab.url && tab.id) {
       // 콘텐츠 스크립트에 직접 위시리스트 추가 요청 (플로팅 버튼과 동일)
       try {
-        await chrome.tabs.sendMessage(tab.id, {
+        const response = await chrome.tabs.sendMessage(tab.id, {
           action: 'ADD_TO_WISHLIST_FROM_POPUP'
         })
-        // 성공 시 팝업 창 닫기
-        window.close()
+        
+        if (response?.success) {
+          // 성공 시 위시리스트 새로고침
+          await wishlistStore.loadWishlist()
+          alert(response.message || '위시리스트에 추가되었습니다!')
+        } else {
+          // 실패 시 오류 메시지 표시
+          alert(response?.error || '추가에 실패했습니다.')
+        }
       } catch (error) {
         console.error('Error sending message to content script:', error)
         // 콘텐츠 스크립트 통신 실패 - 수동 입력

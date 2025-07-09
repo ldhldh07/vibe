@@ -34,8 +34,8 @@ init()
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'ADD_TO_WISHLIST_FROM_POPUP') {
     // 팝업에서 요청한 경우 플로팅 버튼과 동일한 로직 실행
-    handleUniversalAdd()
-    sendResponse({ success: true })
+    handleUniversalAddForPopup(sendResponse)
+    return true // 비동기 응답
   } else if (request.action === 'EXTRACT_PRODUCT_INFO') {
     const siteInfo = detectSite()
     const productInfo = extractProductInfo(siteInfo.extractors)
@@ -61,7 +61,7 @@ function init() {
   
   console.log('🔍 Site detection result:', siteInfo)
   
-  // 테스트를 위해 모든 사이트에서 버튼 표시
+  // 모든 사이트에서 버튼 표시 (테스트용)
   console.log('🛒 Showing wishlist button for testing')
   createUniversalButton()
   
@@ -142,6 +142,11 @@ function getKnownSites() {
       brand: 'Amazon',
       domains: ['amazon.com', 'amazon.co.kr'],
       extractors: [createAmazonExtractor()]
+    },
+    {
+      brand: 'Uniqlo',
+      domains: ['uniqlo.com'],
+      extractors: [createUniqloExtractor()]
     }
   ]
 }
@@ -305,46 +310,102 @@ function createGenericExtractor(): ProductExtractor {
         }
       }
       
-      // 가격 추출
+      // 가격 추출 (개선된 로직)
       const priceSelectors = [
-        '.price', '.product-price', '[data-testid*="price"]',
-        '.cost', '.amount', '[class*="price"]', '.money'
+        // 실제 가격 우선순위
+        '.product-price', '.item-price', '.goods-price', '.main-price',
+        '[data-testid*="price"]:not([data-testid*="point"])',
+        '.price:not(.point):not(.reward):not(.coupon)',
+        '.cost', '.amount', '.money',
+        // 유니클로 등 브랜드 사이트 대응
+        '.price-current', '.current-price', '.sale-price', '.regular-price',
+        '.product-price-current', '.product-price-sale', '.product-price-regular',
+        '.price-value', '.price-amount', '.price-display',
+        // 숫자가 포함된 클래스 (가격일 가능성 높음)
+        '[class*="price"]', '[class*="cost"]', '[class*="amount"]',
+        // 메타 태그에서 가격 추출
+        'meta[property="product:price:amount"]',
+        'meta[property="og:price:amount"]'
       ]
       
       let price = 0
       let priceText = ''
       for (const selector of priceSelectors) {
         const element = document.querySelector(selector)
-        if (element?.textContent) {
-          priceText = element.textContent.trim()
-          price = parsePrice(priceText)
-          if (price > 0) break
+        if (element) {
+          if (element.tagName === 'META') {
+            priceText = element.getAttribute('content') || ''
+          } else {
+            priceText = element.textContent?.trim() || ''
+          }
+          
+          // 포인트나 쿠폰이 아닌 실제 가격인지 확인
+          if (isValidPriceText(priceText)) {
+            price = parsePrice(priceText)
+            if (price > 0) break
+          }
         }
       }
       
-      // 이미지 추출
+      // 이미지 추출 (개선된 로직)
       const imageSelectors = [
-        '.product-image img', '.item-image img', 
-        '[data-testid*="image"] img', '.main-image img'
+        // 상품 이미지 우선순위
+        '.product-image img', '.item-image img', '.goods-image img',
+        '[data-testid*="image"] img', '.main-image img', '.primary-image img',
+        // 메타 태그에서 추출
+        'meta[property="og:image"]', 'meta[name="twitter:image"]',
+        // 일반적인 이미지 선택자들
+        '.thumbnail img', '.photo img', '.picture img',
+        'img[alt*="상품"]', 'img[alt*="product"]', 'img[alt*="item"]',
+        // 첫 번째 큰 이미지 (최후 수단)
+        'img[width]:not([width="1"]):not([width="0"])',
+        'img[style*="width"]:not([style*="1px"]):not([style*="0px"])'
       ]
       
       let image = ''
       for (const selector of imageSelectors) {
-        const element = document.querySelector(selector) as HTMLImageElement
-        if (element?.src) {
-          image = element.src
-          break
+        const element = document.querySelector(selector) as HTMLImageElement | HTMLMetaElement
+        
+        if (element) {
+          let src = ''
+          
+          if (element.tagName === 'META') {
+            src = element.getAttribute('content') || ''
+          } else if (element.tagName === 'IMG') {
+            const imgElement = element as HTMLImageElement
+            src = imgElement.src || imgElement.getAttribute('data-src') || imgElement.getAttribute('data-original') || ''
+          }
+          
+          // 유효한 이미지 URL인지 확인
+          if (src && isValidImageUrl(src)) {
+            image = src
+            break
+          }
         }
       }
       
-      if (title && price > 0) {
+      // 제목이 있으면 가격이 없어도 기본값 사용
+      if (title) {
         return {
           title,
-          price,
+          price: price > 0 ? price : 0,
           currency: 'KRW',
           image,
           description: extractDescription(),
           availability: detectAvailability()
+        }
+      }
+      
+      // 제목도 없으면 페이지 제목 사용
+      const pageTitle = document.title.trim()
+      if (pageTitle) {
+        return {
+          title: pageTitle,
+          price: 0,
+          currency: 'KRW',
+          image,
+          description: extractDescription(),
+          availability: 'unknown'
         }
       }
       
@@ -359,10 +420,67 @@ function createCoupangExtractor(): ProductExtractor {
     name: 'Coupang',
     priority: 10,
     extract: () => {
-      const title = document.querySelector('.prod-buy-header__title')?.textContent?.trim()
-      const priceElement = document.querySelector('.total-price strong')
-      const price = priceElement ? parsePrice(priceElement.textContent || '') : 0
-      const image = (document.querySelector('.prod-image__detail img') as HTMLImageElement)?.src
+      // 제목 추출 (여러 선택자 시도)
+      const titleSelectors = [
+        '.prod-buy-header__title',
+        '.prod-title',
+        '.product-title',
+        'h1'
+      ]
+      let title = ''
+      for (const selector of titleSelectors) {
+        const element = document.querySelector(selector)
+        if (element?.textContent?.trim()) {
+          title = element.textContent.trim()
+          break
+        }
+      }
+      
+      // 가격 추출 (여러 선택자 시도)
+      const priceSelectors = [
+        '.total-price strong',
+        '.price-value',
+        '.prod-price__unit',
+        '.prod-price .price',
+        '.prod-price strong',
+        '.price-info .price',
+        '.price:not(.point):not(.reward)'
+      ]
+      let price = 0
+      for (const selector of priceSelectors) {
+        const element = document.querySelector(selector)
+        if (element?.textContent) {
+          const priceText = element.textContent.trim()
+          if (isValidPriceText(priceText)) {
+            price = parsePrice(priceText)
+            if (price > 0) break
+          }
+        }
+      }
+      
+      // 이미지 추출 (여러 선택자 시도)
+      const imageSelectors = [
+        '.prod-image__detail img',
+        '.prod-image img',
+        '.product-image img',
+        'meta[property="og:image"]'
+      ]
+      let image = ''
+      for (const selector of imageSelectors) {
+        const element = document.querySelector(selector) as HTMLImageElement | HTMLMetaElement
+        if (element) {
+          let src = ''
+          if (element.tagName === 'META') {
+            src = element.getAttribute('content') || ''
+          } else {
+            src = (element as HTMLImageElement).src || ''
+          }
+          if (src && isValidImageUrl(src)) {
+            image = src
+            break
+          }
+        }
+      }
       
       if (title && price > 0) {
         return {
@@ -370,7 +488,9 @@ function createCoupangExtractor(): ProductExtractor {
           price,
           currency: 'KRW',
           image,
-          brand: 'Coupang'
+          brand: 'Coupang',
+          category: detectCategory(title),
+          availability: detectAvailability()
         }
       }
       return null
@@ -378,31 +498,128 @@ function createCoupangExtractor(): ProductExtractor {
   }
 }
 
-// 기타 추출기들 (간단 버전)
+// 11번가 전용 추출기
 function create11stExtractor(): ProductExtractor {
   return {
     name: '11st',
     priority: 10,
     extract: () => {
-      const title = document.querySelector('.prd_name')?.textContent?.trim()
-      const price = parsePrice(document.querySelector('.price_detail strong')?.textContent || '')
-      const image = (document.querySelector('.prd_img img') as HTMLImageElement)?.src
+      // 제목 추출
+      const titleSelectors = ['.prd_name', '.product-title', 'h1', '.item-name']
+      let title = ''
+      for (const selector of titleSelectors) {
+        const element = document.querySelector(selector)
+        if (element?.textContent?.trim()) {
+          title = element.textContent.trim()
+          break
+        }
+      }
       
-      return title && price > 0 ? { title, price, currency: 'KRW', image, brand: '11번가' } : null
+      // 가격 추출
+      const priceSelectors = ['.price_detail strong', '.price', '.product-price']
+      let price = 0
+      for (const selector of priceSelectors) {
+        const element = document.querySelector(selector)
+        if (element?.textContent) {
+          const priceText = element.textContent.trim()
+          if (isValidPriceText(priceText)) {
+            price = parsePrice(priceText)
+            if (price > 0) break
+          }
+        }
+      }
+      
+      // 이미지 추출
+      const imageSelectors = ['.prd_img img', '.product-image img', 'meta[property="og:image"]']
+      let image = ''
+      for (const selector of imageSelectors) {
+        const element = document.querySelector(selector) as HTMLImageElement | HTMLMetaElement
+        if (element) {
+          let src = ''
+          if (element.tagName === 'META') {
+            src = element.getAttribute('content') || ''
+          } else {
+            src = (element as HTMLImageElement).src || ''
+          }
+          if (src && isValidImageUrl(src)) {
+            image = src
+            break
+          }
+        }
+      }
+      
+      return title && price > 0 ? { 
+        title, 
+        price, 
+        currency: 'KRW', 
+        image, 
+        brand: '11번가',
+        category: detectCategory(title),
+        availability: detectAvailability()
+      } : null
     }
   }
 }
 
+// G마켓 전용 추출기
 function createGmarketExtractor(): ProductExtractor {
   return {
     name: 'Gmarket',
     priority: 10,
     extract: () => {
-      const title = document.querySelector('.itemtit')?.textContent?.trim()
-      const price = parsePrice(document.querySelector('.price_innerwrap strong')?.textContent || '')
-      const image = (document.querySelector('.item_img img') as HTMLImageElement)?.src
+      // 제목 추출
+      const titleSelectors = ['.itemtit', '.product-title', 'h1', '.item-name']
+      let title = ''
+      for (const selector of titleSelectors) {
+        const element = document.querySelector(selector)
+        if (element?.textContent?.trim()) {
+          title = element.textContent.trim()
+          break
+        }
+      }
       
-      return title && price > 0 ? { title, price, currency: 'KRW', image, brand: 'G마켓' } : null
+      // 가격 추출
+      const priceSelectors = ['.price_innerwrap strong', '.price', '.product-price']
+      let price = 0
+      for (const selector of priceSelectors) {
+        const element = document.querySelector(selector)
+        if (element?.textContent) {
+          const priceText = element.textContent.trim()
+          if (isValidPriceText(priceText)) {
+            price = parsePrice(priceText)
+            if (price > 0) break
+          }
+        }
+      }
+      
+      // 이미지 추출
+      const imageSelectors = ['.item_img img', '.product-image img', 'meta[property="og:image"]']
+      let image = ''
+      for (const selector of imageSelectors) {
+        const element = document.querySelector(selector) as HTMLImageElement | HTMLMetaElement
+        if (element) {
+          let src = ''
+          if (element.tagName === 'META') {
+            src = element.getAttribute('content') || ''
+          } else {
+            src = (element as HTMLImageElement).src || ''
+          }
+          if (src && isValidImageUrl(src)) {
+            image = src
+            break
+          }
+        }
+      }
+      
+      return title && price > 0 ? { 
+        title, 
+        price, 
+        currency: 'KRW', 
+        image, 
+        brand: 'G마켓',
+        category: detectCategory(title),
+        availability: detectAvailability()
+      } : null
     }
   }
 }
@@ -423,15 +640,234 @@ function createAmazonExtractor(): ProductExtractor {
   return { name: 'Amazon', priority: 10, extract: () => null }
 }
 
+// Uniqlo 전용 추출기
+function createUniqloExtractor(): ProductExtractor {
+  return {
+    name: 'Uniqlo',
+    priority: 10,
+    extract: () => {
+      // 제목 추출
+      const titleSelectors = [
+        '.pdp-product-name',
+        '.product-title',
+        'h1[data-testid*="product-title"]',
+        'h1',
+        '.pdp-product-name h1'
+      ]
+      
+      let title = ''
+      for (const selector of titleSelectors) {
+        const element = document.querySelector(selector)
+        if (element?.textContent?.trim()) {
+          title = element.textContent.trim()
+          break
+        }
+      }
+      
+      // 가격 추출
+      const priceSelectors = [
+        '.price-current',
+        '.current-price',
+        '.sale-price',
+        '.regular-price',
+        '.product-price-current',
+        '.product-price',
+        '.price',
+        '[data-testid*="price"]',
+        '[class*="price"]'
+      ]
+      
+      let price = 0
+      for (const selector of priceSelectors) {
+        const element = document.querySelector(selector)
+        if (element?.textContent) {
+          const priceText = element.textContent.trim()
+          if (isValidPriceText(priceText)) {
+            price = parsePrice(priceText)
+            if (price > 0) break
+          }
+        }
+      }
+      
+      // 이미지 추출
+      const imageSelectors = [
+        '.pdp-product-image img',
+        '.product-image img',
+        '.main-image img',
+        '.primary-image img',
+        'meta[property="og:image"]'
+      ]
+      
+      let image = ''
+      for (const selector of imageSelectors) {
+        const element = document.querySelector(selector) as HTMLImageElement | HTMLMetaElement
+        if (element) {
+          let src = ''
+          if (element.tagName === 'META') {
+            src = element.getAttribute('content') || ''
+          } else {
+            src = (element as HTMLImageElement).src || ''
+          }
+          if (src && isValidImageUrl(src)) {
+            image = src
+            break
+          }
+        }
+      }
+      
+      if (title && price > 0) {
+        return {
+          title,
+          price,
+          currency: 'KRW',
+          image,
+          brand: 'Uniqlo',
+          category: detectCategory(title),
+          availability: detectAvailability()
+        }
+      }
+      return null
+    }
+  }
+}
+
 // 유틸리티 함수들
+function isValidPriceText(text: string): boolean {
+  if (!text || text.length < 2) return false
+  
+  // 포인트나 쿠폰 관련 키워드 제외
+  const excludeKeywords = [
+    'point', 'points', '포인트', 'P',
+    'coupon', '쿠폰', 'discount', '할인',
+    'reward', '리워드', 'bonus', '보너스',
+    'save', '절약', 'cashback', '캐시백',
+    'mile', '마일', 'membership', '멤버십'
+  ]
+  
+  const lowerText = text.toLowerCase()
+  if (excludeKeywords.some(keyword => lowerText.includes(keyword))) {
+    return false
+  }
+  
+  // 실제 가격을 나타내는 패턴 확인
+  const pricePatterns = [
+    /\d+(?:,\d{3})*원/,  // 49,900원
+    /\d+(?:,\d{3})*\s*원/,  // 49,900 원
+    /\d+만원/,  // 4만원
+    /\d+(?:,\d{3})*$/,  // 49,900 (숫자만)
+    /\$\d+(?:,\d{3})*(?:\.\d{2})?/,  // $49,900.00
+    /\d+(?:,\d{3})*(?:\.\d{2})?/  // 49,900.00
+  ]
+  
+  return pricePatterns.some(pattern => pattern.test(text))
+}
+
 function parsePrice(priceText: string): number {
-  const cleanPrice = priceText.replace(/[^\d]/g, '')
-  return parseInt(cleanPrice) || 0
+  if (!priceText) return 0
+  
+  // 한국어 가격 패턴 추출 (원, 만원, 억원 등)
+  const koreanPriceMatch = priceText.match(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:만\s*)?원/)
+  if (koreanPriceMatch) {
+    const numberPart = koreanPriceMatch[1].replace(/,/g, '')
+    const isManWon = priceText.includes('만원')
+    const price = parseFloat(numberPart)
+    return isManWon ? price * 10000 : price
+  }
+  
+  // 일반적인 가격 패턴 (숫자 + 쉼표)
+  const generalPriceMatch = priceText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/)
+  if (generalPriceMatch) {
+    const numberPart = generalPriceMatch[1].replace(/,/g, '')
+    return parseFloat(numberPart)
+  }
+  
+  // 연속된 숫자만 있는 경우 (최대 10자리까지만 허용)
+  const numbersOnly = priceText.replace(/[^\d]/g, '')
+  if (numbersOnly.length > 0 && numbersOnly.length <= 10) {
+    const price = parseInt(numbersOnly)
+    // 상식적인 가격 범위 체크 (1원 ~ 100억원)
+    if (price >= 1 && price <= 10000000000) {
+      return price
+    }
+  }
+  
+  return 0
+}
+
+function isValidImageUrl(url: string): boolean {
+  // 기본 URL 검사
+  if (!url || url.length < 10) return false
+  
+  // 데이터 URL은 제외
+  if (url.startsWith('data:')) return false
+  
+  // 아이콘이나 작은 이미지 제외
+  if (url.includes('icon') || url.includes('logo') || url.includes('sprite')) return false
+  
+  // 광고나 트래킹 이미지 제외
+  if (url.includes('ad') || url.includes('banner') || url.includes('tracking')) return false
+  
+  // 1px 이미지 제외
+  if (url.includes('1x1') || url.includes('1pixel')) return false
+  
+  // 상대 경로를 절대 경로로 변환
+  if (url.startsWith('//')) {
+    url = window.location.protocol + url
+  } else if (url.startsWith('/')) {
+    url = window.location.origin + url
+  }
+  
+  // 이미지 확장자 확인
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
+  const hasImageExtension = imageExtensions.some(ext => url.toLowerCase().includes(ext))
+  
+  // URL에 이미지 확장자가 있거나, 이미지 관련 키워드가 있으면 유효
+  return hasImageExtension || url.includes('image') || url.includes('photo') || url.includes('picture')
 }
 
 function detectBrand(): string {
   const hostname = window.location.hostname
-  return hostname.split('.')[0] || 'Unknown'
+  
+  // 알려진 쇼핑몰 브랜드 매핑
+  const brandMap: { [key: string]: string } = {
+    'coupang.com': 'Coupang',
+    '11st.co.kr': '11번가',
+    'gmarket.co.kr': 'G마켓',
+    'auction.co.kr': '옥션',
+    'nike.com': 'Nike',
+    'adidas.com': 'Adidas',
+    'amazon.com': 'Amazon',
+    'amazon.co.kr': 'Amazon Korea',
+    'naver.com': 'Naver',
+    'google.com': 'Google',
+    'youtube.com': 'YouTube',
+    'facebook.com': 'Facebook',
+    'instagram.com': 'Instagram',
+    'twitter.com': 'Twitter',
+    'github.com': 'GitHub'
+  }
+  
+  // 정확한 도메인 매칭 먼저 시도
+  for (const [domain, brand] of Object.entries(brandMap)) {
+    if (hostname.includes(domain)) {
+      return brand
+    }
+  }
+  
+  // 도메인에서 브랜드명 추출
+  const parts = hostname.split('.')
+  let brandPart = ''
+  
+  // www, m, mobile 등 제거
+  for (const part of parts) {
+    if (part !== 'www' && part !== 'm' && part !== 'mobile' && part !== 'shop' && part.length > 2) {
+      brandPart = part
+      break
+    }
+  }
+  
+  // 첫 글자 대문자로 변환
+  return brandPart ? brandPart.charAt(0).toUpperCase() + brandPart.slice(1) : 'Unknown'
 }
 
 function detectCategory(title: string): string {
@@ -454,6 +890,47 @@ function detectCategory(title: string): string {
   return '기타'
 }
 
+// URL에서 브랜드 추출
+function getBrandFromUrl(): string {
+  const hostname = window.location.hostname
+  const brandMap: { [key: string]: string } = {
+    'coupang.com': 'Coupang',
+    '11st.co.kr': '11번가',
+    'gmarket.co.kr': 'G마켓',
+    'auction.co.kr': '옥션',
+    'nike.com': 'Nike',
+    'adidas.com': 'Adidas',
+    'amazon.com': 'Amazon',
+    'amazon.co.kr': 'Amazon Korea',
+    'naver.com': 'Naver',
+    'google.com': 'Google',
+    'youtube.com': 'YouTube',
+    'facebook.com': 'Facebook',
+    'instagram.com': 'Instagram',
+    'twitter.com': 'Twitter',
+    'github.com': 'GitHub'
+  }
+  
+  for (const [domain, brand] of Object.entries(brandMap)) {
+    if (hostname.includes(domain)) {
+      return brand
+    }
+  }
+  
+  // 기본 브랜드 추출 (도메인에서)
+  const parts = hostname.split('.')
+  let brandName = ''
+  
+  for (const part of parts) {
+    if (part !== 'www' && part !== 'm' && part !== 'mobile' && part !== 'shop' && part.length > 2) {
+      brandName = part
+      break
+    }
+  }
+  
+  return brandName ? brandName.charAt(0).toUpperCase() + brandName.slice(1) : 'Unknown'
+}
+
 function extractDescription(): string {
   const descSelectors = ['.description', '.product-description', '.detail']
   for (const selector of descSelectors) {
@@ -472,6 +949,81 @@ function detectAvailability(): 'in_stock' | 'out_of_stock' | 'unknown' {
   return 'unknown'
 }
 
+// 팝업 전용 핸들러
+async function handleUniversalAddForPopup(sendResponse: (response: any) => void) {
+  console.log('🎯 Popup requested wishlist add')
+  
+  try {
+    const siteInfo = detectSite()
+    let productInfo = extractProductInfo(siteInfo.extractors)
+    
+    // 자동 추출로만 처리 (수동 입력 제거)
+    if (!productInfo) {
+      // 최후의 수단: 페이지 제목을 사용
+      productInfo = {
+        title: document.title.trim() || '제목 없음',
+        price: 0,
+        currency: 'KRW',
+        image: '',
+        brand: getBrandFromUrl(),
+        category: 'unknown',
+        availability: 'unknown'
+      }
+    }
+    
+    if (productInfo) {
+      try {
+        const response = await chrome.runtime.sendMessage({
+          action: 'SAVE_WISHLIST_ITEM',
+          data: {
+            ...productInfo,
+            url: window.location.href,
+            addedAt: new Date().toISOString()
+          }
+        })
+        
+        console.log('Save response:', response)
+        
+        if (response?.success) {
+          sendResponse({ 
+            success: true, 
+            message: '위시리스트에 추가되었습니다!',
+            item: {
+              ...productInfo,
+              url: window.location.href,
+              addedAt: new Date().toISOString()
+            }
+          })
+        } else {
+          console.error('Save failed:', response?.error)
+          sendResponse({ 
+            success: false, 
+            error: response?.error || '저장에 실패했습니다.'
+          })
+        }
+      } catch (error) {
+        console.error('Message send error:', error)
+        sendResponse({ 
+          success: false, 
+          error: '저장 중 오류가 발생했습니다.'
+        })
+      }
+    } else {
+      console.log('No product info, user cancelled')
+      sendResponse({ 
+        success: false, 
+        error: '추가가 취소되었습니다.'
+      })
+    }
+  } catch (error) {
+    console.error('Error in popup add handler:', error)
+    sendResponse({ 
+      success: false, 
+      error: '처리 중 오류가 발생했습니다.'
+    })
+  }
+}
+
 // 범용 추가 핸들러
 async function handleUniversalAdd() {
   const button = document.getElementById('smart-wishlist-btn')
@@ -488,9 +1040,18 @@ async function handleUniversalAdd() {
     const siteInfo = detectSite()
     let productInfo = extractProductInfo(siteInfo.extractors)
     
+    // 자동 추출로만 처리 (수동 입력 제거)
     if (!productInfo) {
-      // 수동 입력 모드
-      productInfo = await promptForProductInfo()
+      // 최후의 수단: 페이지 제목을 사용
+      productInfo = {
+        title: document.title.trim() || '제목 없음',
+        price: 0,
+        currency: 'KRW',
+        image: '',
+        brand: getBrandFromUrl(),
+        category: 'unknown',
+        availability: 'unknown'
+      }
     }
     
     if (productInfo) {
