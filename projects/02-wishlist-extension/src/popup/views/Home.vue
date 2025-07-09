@@ -90,17 +90,54 @@ const searchQuery = ref('')
 const selectedBrand = ref('')
 const sortBy = ref('addedAt')
 
-// 현재 탭 정보 가져오기
+// 현재 탭 정보 가져오기 (플로팅 버튼과 동일한 로직)
 const addCurrentPage = async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    if (tab.url) {
-      // 수동 추가 모달이나 로직 구현
-      console.log('Add current page:', tab.url)
-      // TODO: 수동 추가 구현
+    if (tab.url && tab.id) {
+      // 콘텐츠 스크립트에 직접 위시리스트 추가 요청 (플로팅 버튼과 동일)
+      try {
+        await chrome.tabs.sendMessage(tab.id, {
+          action: 'ADD_TO_WISHLIST_FROM_POPUP'
+        })
+        // 성공 시 팝업 창 닫기
+        window.close()
+      } catch (error) {
+        console.error('Error sending message to content script:', error)
+        // 콘텐츠 스크립트 통신 실패 - 수동 입력
+        await manualAddItem(tab)
+      }
     }
   } catch (error) {
     console.error('Error getting current tab:', error)
+    alert('현재 페이지를 추가할 수 없습니다.')
+  }
+}
+
+// 수동 입력으로 아이템 추가
+const manualAddItem = async (tab: chrome.tabs.Tab) => {
+  const title = prompt('상품명을 입력해주세요:', tab.title) || tab.title
+  const priceText = prompt('가격을 입력해주세요 (숫자만):', '0')
+  const price = parseInt(priceText?.replace(/[^\d]/g, '') || '0')
+  
+  if (price > 0) {
+    const hostname = new URL(tab.url!).hostname
+    const brand = hostname.split('.')[0] || 'Unknown'
+    
+    const newItem = {
+      id: Date.now().toString(),
+      title,
+      price,
+      currency: 'KRW',
+      url: tab.url!,
+      brand,
+      addedAt: new Date().toISOString()
+    }
+    
+    await wishlistStore.addItem(newItem)
+    alert('위시리스트에 추가되었습니다!')
+  } else {
+    alert('올바른 가격을 입력해주세요.')
   }
 }
 

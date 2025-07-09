@@ -30,22 +30,44 @@ interface ProductInfo {
 // 메인 초기화
 init()
 
+// 메시지 리스너 추가
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'ADD_TO_WISHLIST_FROM_POPUP') {
+    // 팝업에서 요청한 경우 플로팅 버튼과 동일한 로직 실행
+    handleUniversalAdd()
+    sendResponse({ success: true })
+  } else if (request.action === 'EXTRACT_PRODUCT_INFO') {
+    const siteInfo = detectSite()
+    const productInfo = extractProductInfo(siteInfo.extractors)
+    
+    if (productInfo) {
+      sendResponse({
+        success: true,
+        data: productInfo
+      })
+    } else {
+      sendResponse({
+        success: false,
+        error: 'No product info found'
+      })
+    }
+  }
+  
+  return true // 비동기 응답
+})
+
 function init() {
   const siteInfo = detectSite()
   
   console.log('🔍 Site detection result:', siteInfo)
   
-  // 쇼핑 사이트이거나 상품 페이지인 경우만 버튼 표시
-  if (siteInfo.isEcommerce || siteInfo.confidence > 0.3) {
-    console.log('🛒 E-commerce site detected, showing wishlist button')
-    createSmartWishlistButton(siteInfo)
-    
-    // 고급 기능 추가
-    if (siteInfo.confidence > 0.7) {
-      enhanceShoppingSite(siteInfo)
-    }
-  } else {
-    console.log('❌ Not an e-commerce site, button hidden')
+  // 테스트를 위해 모든 사이트에서 버튼 표시
+  console.log('🛒 Showing wishlist button for testing')
+  createUniversalButton()
+  
+  // 고급 기능 추가 (쇼핑 사이트인 경우)
+  if (siteInfo.isEcommerce || siteInfo.confidence > 0.7) {
+    enhanceShoppingSite(siteInfo)
   }
   
   // 페이지 변화 감지 (SPA 대응)
@@ -472,21 +494,30 @@ async function handleUniversalAdd() {
     }
     
     if (productInfo) {
-      const response = await chrome.runtime.sendMessage({
-        action: 'SAVE_WISHLIST_ITEM',
-        data: {
-          ...productInfo,
-          url: window.location.href,
-          addedAt: new Date().toISOString()
+      try {
+        const response = await chrome.runtime.sendMessage({
+          action: 'SAVE_WISHLIST_ITEM',
+          data: {
+            ...productInfo,
+            url: window.location.href,
+            addedAt: new Date().toISOString()
+          }
+        })
+        
+        console.log('Save response:', response)
+        
+        if (response?.success) {
+          showSuccessState(button)
+        } else {
+          console.error('Save failed:', response?.error)
+          showErrorState(button)
         }
-      })
-      
-      if (response?.success) {
-        showSuccessState(button)
-      } else {
+      } catch (error) {
+        console.error('Message send error:', error)
         showErrorState(button)
       }
     } else {
+      console.log('No product info, showing error state')
       showErrorState(button)
     }
   } catch (error) {

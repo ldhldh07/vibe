@@ -1,9 +1,7 @@
 // Chrome Extension Background Script
-console.log('Smart Wishlist Background Script loaded')
 
 // 익스텐션 설치 시 초기 설정
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Smart Wishlist Extension installed')
   
   // 기본 설정값 저장
   chrome.storage.local.set({
@@ -24,7 +22,7 @@ chrome.runtime.onInstalled.addListener(() => {
       contexts: ['page', 'selection', 'link']
     })
   } catch (error) {
-    console.error('Context menu creation failed:', error)
+    // Context menu creation failed
   }
 })
 
@@ -41,24 +39,55 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // 메시지 리스너
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Background received message:', request)
-  
-  switch (request.action) {
-    case 'GET_CURRENT_TAB':
-      getCurrentTab().then(sendResponse)
-      return true
-    
-    case 'SAVE_WISHLIST_ITEM':
-      saveWishlistItem(request.data).then(sendResponse)
-      return true
-    
-    case 'GET_WISHLIST':
-      getWishlist().then(sendResponse)
-      return true
-      
-    default:
-      sendResponse({ error: 'Unknown action' })
+  try {
+    console.log('Background received message:', request)
+  } catch (e) {
+    // console.log 실패 시 무시
   }
+  
+  // 비동기 응답을 위해 항상 true 반환
+  (async () => {
+    try {
+      switch (request.action) {
+        case 'GET_CURRENT_TAB':
+          const tabResult = await getCurrentTab()
+          sendResponse(tabResult)
+          break
+        
+        case 'SAVE_WISHLIST_ITEM':
+          const saveResult = await saveWishlistItem(request.data)
+          sendResponse(saveResult)
+          break
+        
+        case 'GET_WISHLIST':
+          const wishlistResult = await getWishlist()
+          sendResponse(wishlistResult)
+          break
+          
+        case 'REMOVE_WISHLIST_ITEM':
+          const removeResult = await removeWishlistItem(request.data.itemId)
+          sendResponse(removeResult)
+          break
+          
+        case 'UPDATE_WISHLIST_ITEM':
+          const updateResult = await updateWishlistItem(request.data)
+          sendResponse(updateResult)
+          break
+          
+        case 'CLEAR_WISHLIST':
+          const clearResult = await clearWishlist()
+          sendResponse(clearResult)
+          break
+          
+        default:
+          sendResponse({ error: 'Unknown action' })
+      }
+    } catch (error) {
+      sendResponse({ success: false, error: error.message })
+    }
+  })()
+  
+  return true // 비동기 응답을 위해 true 반환
 })
 
 // 현재 탭 정보 가져오기
@@ -105,18 +134,53 @@ async function getWishlist() {
   }
 }
 
+// 위시리스트 아이템 제거
+async function removeWishlistItem(itemId: string) {
+  try {
+    const result = await chrome.storage.local.get(['wishlist'])
+    const wishlist = result.wishlist || []
+    
+    const filteredWishlist = wishlist.filter((item: any) => item.id !== itemId)
+    
+    await chrome.storage.local.set({ wishlist: filteredWishlist })
+    return { success: true, data: filteredWishlist }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+// 위시리스트 아이템 업데이트
+async function updateWishlistItem(updatedItem: any) {
+  try {
+    const result = await chrome.storage.local.get(['wishlist'])
+    const wishlist = result.wishlist || []
+    
+    const index = wishlist.findIndex((item: any) => item.id === updatedItem.id)
+    if (index >= 0) {
+      wishlist[index] = { ...wishlist[index], ...updatedItem, updatedAt: new Date().toISOString() }
+    }
+    
+    await chrome.storage.local.set({ wishlist })
+    return { success: true, data: wishlist }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+// 위시리스트 초기화
+async function clearWishlist() {
+  try {
+    await chrome.storage.local.set({ wishlist: [] })
+    return { success: true, data: [] }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
 // ID 생성 함수
 function generateId(): string {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
 }
 
-// 주기적 가격 체크 (나중에 구현)
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'price-check') {
-    console.log('Price check alarm triggered')
-    // 가격 체크 로직 구현 예정
-  }
-})
-
-// 알람 설정
-chrome.alarms.create('price-check', { delayInMinutes: 60, periodInMinutes: 60 })
+// 주기적 가격 체크는 나중에 구현
+// Background script initialization complete
