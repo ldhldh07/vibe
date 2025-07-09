@@ -13,6 +13,9 @@
     "backend:kill": "pkill -f 'todo-app.jar' && pkill -f 'gradle.*run'",
     "frontend": "cd projects/01-todo-list/frontend && pnpm dev",
     "fullstack": "concurrently \"pnpm backend\" \"pnpm frontend\"",
+    "wishlist:dev": "cd projects/02-wishlist-extension && pnpm dev",
+    "wishlist:build": "cd projects/02-wishlist-extension && pnpm build",
+    "wishlist:preview": "cd projects/02-wishlist-extension && pnpm preview",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
