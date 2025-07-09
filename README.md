@@ -26,15 +26,16 @@ Vibe Coding은 다양한 웹 개발 프로젝트들을 모아놓은 **Monorepo**
 
 ```
 vibe-coding/
-├── projects/           # 개별 프로젝트들
-│   ├── 01-todo-list/  # Todo 애플리케이션
-│   └── ...            # 추가 프로젝트들
-├── shared/            # 공유 라이브러리
-│   ├── ui/           # 공통 UI 컴포넌트
-│   ├── utils/        # 유틸리티 함수
-│   ├── types/        # 타입 정의
-│   └── configs/      # 설정 파일들
-└── docs/             # 전체 문서
+├── projects/              # 개별 프로젝트들
+│   ├── 01-todo-list/      # Todo 애플리케이션
+│   ├── 02-wishlist-extension/ # 위시리스트 크롬 익스텐션
+│   └── ...                # 추가 프로젝트들
+├── shared/               # 공유 라이브러리
+│   ├── ui/              # 공통 UI 컴포넌트
+│   ├── utils/           # 유틸리티 함수
+│   ├── types/           # 타입 정의
+│   └── configs/         # 설정 파일들
+└── docs/                # 전체 문서
 ```
 
 ## 🎯 프로젝트 목록
@@ -60,6 +61,27 @@ vibe-coding/
   - RESTful API 설계
   - 타입 안전성 (TypeScript + Kotlin)
   - In-Memory 스토리지 (개발용)
+
+### 02. [Smart Wishlist Extension](./projects/02-wishlist-extension/) 🚧 **개발 중**
+**🏷️ 크롬 익스텐션 (쇼핑 보조 도구)**
+
+- **Frontend**: Vue 3 + TypeScript + Vite + Tailwind CSS
+- **Architecture**: Chrome Extension Manifest V3 + Content Scripts
+- **최신 업데이트**: 
+  - ✅ MVP 기본 구조 완성 (Vue 3 + Chrome Extension)
+  - ✅ 하이브리드 방식 사이트 지원 (모든 URL 호환)
+  - ✅ 쇼핑몰별 상품 정보 자동 추출기 구현
+  - ✅ 플로팅 버튼 UI 및 원클릭 위시리스트 추가
+  - ✅ Chrome Storage API 연동 데이터 저장
+  - ✅ 팝업 UI (홈, 브랜드, 카테고리, 알림) 구조 완성
+- **특징**: 
+  - 🌐 모든 웹사이트 지원 (하이브리드 방식)
+  - 🛒 주요 쇼핑몰 자동 상품 인식 (쿠팡, 11번가, 지마켓 등)
+  - 💖 원클릭 위시리스트 추가 (플로팅 버튼)
+  - 🏷️ 브랜드별 자동 분류 및 정리
+  - 📊 가격 추적 및 알림 (개발 예정)
+  - 🎨 Vue 3 컴포지션 API + Pinia 상태 관리
+  - 🔧 TypeScript 타입 안전성
 
 ## 🚀 빠른 시작
 
@@ -97,6 +119,12 @@ pnpm backend:dev
 
 # Backend 프로세스 종료
 pnpm backend:kill
+
+# 위시리스트 익스텐션 개발 서버 실행
+pnpm wishlist:dev
+
+# 위시리스트 익스텐션 빌드 (크롬 로드용)
+pnpm wishlist:build
 ```
 
 ### 설치 및 실행 (수동)
